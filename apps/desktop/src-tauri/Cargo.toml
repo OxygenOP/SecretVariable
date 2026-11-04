@@ -1,0 +1,12 @@
+[package]
+name = "secretvariable-desktop"
+version = "0.1.0"
+description = "SecretVariable desktop app"
+edition = "2021"
+license = "MIT"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

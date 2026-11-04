@@ -28,7 +28,8 @@ export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyIn
     return reply.code(500).send({ error: { code: "internal", message: "Internal server error" } });
   });
 
-  app.get("/api/health", async () => ({ ok: true }));
+  // public and carries no data; CORS-open so the desktop app can verify a server URL before navigating to it
+  app.get("/api/health", async (_req, reply) => reply.header("access-control-allow-origin", "*").send({ ok: true }));
   authRoutes(app, ctx);
   orgRoutes(app, ctx);
   projectRoutes(app, ctx);
