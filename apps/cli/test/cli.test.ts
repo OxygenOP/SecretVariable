@@ -78,7 +78,7 @@ describe("cli", () => {
     expect(err.join("\n")).toContain("Run: svar login");
     expect(err.join("\n")).not.toContain("secretvariable login");
     expect(await main(["help"], io)).toBe(0);
-    expect(out.join("\n")).toContain("svar 0.1.0");
+    expect(out.join("\n")).toContain(`svar ${VERSION}`);
     expect(out.join("\n")).toContain("pull  [--env E]");
     expect(out.join("\n")).not.toMatch(/secretvariable (pull|push|login)/);
   });

@@ -5,7 +5,11 @@
 **Open-source, self-hostable home for your `.env` files.**
 Versioned environments, encrypted at rest, shared with exactly the people who need them.
 
-[Quick start](#quick-start) · [Features](#features) · [CLI](#command-line) · [Self-hosting](guide/self-hosting.md) · [Security](guide/security.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://www.secretvariable.com) · [Docs](https://www.secretvariable.com/docs) · [Quick start](#quick-start) · [Features](#features) · [CLI](#command-line) · [Self-hosting](guide/self-hosting.md) · [Security](guide/security.md) · [Contributing](CONTRIBUTING.md)
+
+[![CI](https://github.com/OxygenOP/SecretVariable/actions/workflows/ci.yml/badge.svg)](https://github.com/OxygenOP/SecretVariable/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@secretvariable/cli?label=%40secretvariable%2Fcli)](https://www.npmjs.com/package/@secretvariable/cli)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 </div>
 
@@ -53,7 +57,7 @@ echo "$SV_MASTER_KEY" > master.key && chmod 600 master.key   # keep it OUT of th
 docker compose up -d
 ```
 
-Open <http://localhost:8080>, create your account (you become the owner of a personal workspace), then create a project.
+Open <http://localhost:8080>, create your account (you become the owner of a personal workspace), then create a project. The [installation guide](https://www.secretvariable.com/docs/installation) walks through the same steps with screenshots of what to expect.
 
 > Put the app behind HTTPS (Caddy, nginx, Traefik) before exposing it. See the [self-hosting guide](guide/self-hosting.md) for a proxy example, backups and upgrades.
 
@@ -62,7 +66,7 @@ Open <http://localhost:8080>, create your account (you become the owner of a per
 The command is `svar` (the long name `secretvariable` works too).
 
 ```bash
-npm install -g @secretvariable/cli     # Node 20+; or build it from source, see guide/cli.md
+npm install -g @secretvariable/cli     # Node.js 20+, one file, no dependencies
 svar login --server https://secrets.example.com
 cd my-project
 svar init                    # link this folder to a project
@@ -74,7 +78,7 @@ svar diff 3 4                # what changed
 svar rollback 3
 ```
 
-In CI, set `SECRETVARIABLE_URL` and `SECRETVARIABLE_TOKEN` (a read-only service token for one environment) instead of logging in. Full reference: [guide/cli.md](guide/cli.md).
+In CI, set `SECRETVARIABLE_URL` and `SECRETVARIABLE_TOKEN` (a read-only service token for one environment) instead of logging in. Full reference: [guide/cli.md](guide/cli.md) or the [CLI guide](https://www.secretvariable.com/docs/cli) on the website. You can also [build it from source](guide/cli.md#install).
 
 ## How it is built
 
@@ -96,6 +100,10 @@ The server encrypts values with keys derived from a master key you provide, so *
 ## Status
 
 Early software (`0.x`). The API, CLI and web app are covered by automated tests (server and CLI integration tests against PostgreSQL, a browser end-to-end test). Not yet implemented: master-key rotation tooling, password reset, SSO, GitHub/Vercel secret sync. See the [roadmap](guide/roadmap.md).
+
+## Documentation
+
+The guides on the [website](https://www.secretvariable.com/docs) cover [installation](https://www.secretvariable.com/docs/installation), [self-hosting](https://www.secretvariable.com/docs/self-hosting), the [CLI](https://www.secretvariable.com/docs/cli) and the [web app](https://www.secretvariable.com/docs/web-app). The same material, plus the architecture and security notes, lives in [`guide/`](guide/) in this repository.
 
 ## Contributing
 

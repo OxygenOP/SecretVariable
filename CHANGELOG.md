@@ -2,7 +2,11 @@
 
 All notable changes are recorded here. The project follows [Semantic Versioning](https://semver.org/) once it reaches 1.0; until then minor versions may include breaking changes.
 
-## [Unreleased] - 0.1.0
+## 0.1.1
+
+- The npm package page and the README now link to the website, <https://www.secretvariable.com>, and its guides. No code changes.
+
+## 0.1.0
 
 First public version.
 
