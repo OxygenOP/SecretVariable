@@ -6,6 +6,13 @@ import { CodeLine, CopyButton, ErrorBox, FormError, Icon, Loading, Modal, Who, a
 import { actionLabel } from "./labels";
 import { useProject } from "./project";
 
+
+/** True when the server has SMTP configured, so invitations can be emailed. */
+function useEmailEnabled(): boolean {
+  const cfg = useAsync(() => fetch("/api/config").then((r) => r.json()).catch(() => ({ emailEnabled: false })), []);
+  return !!(cfg.data as { emailEnabled?: boolean } | null)?.emailEnabled;
+}
+
 const EXPIRY_OPTIONS: [string, string][] = [["1", "In 1 day"], ["3", "In 3 days"], ["7", "In 7 days"], ["14", "In 14 days"], ["30", "In 30 days"]];
 
 /* ============================ members ============================ */
@@ -62,7 +69,8 @@ export function MembersPage() {
   const invites = useAsync(() => (admin ? get(`/projects/${project.id}/invites`).then((r) => r.invites as InviteInfo[]) : Promise.resolve([] as InviteInfo[])), [project.id, admin]);
   const [inviting, setInviting] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
-  const [created, setCreated] = useState<{ email: string; link: string } | null>(null);
+  const emailEnabled = useEmailEnabled();
+  const [created, setCreated] = useState<{ email: string; link: string; emailed: boolean; emailError?: string } | null>(null);
   const [extending, setExtending] = useState<InviteInfo | null>(null);
   const envName = (id: string) => envs.find((e) => e.id === id)?.name ?? "?";
 
@@ -105,6 +113,9 @@ export function MembersPage() {
                   <td>{i.email}</td><td><span className="pill">{i.role}</span></td>
                   <td className="muted" title={absTime(i.expiresAt)}>{i.expired ? <span className="pill negative">expired</span> : `expires ${relTime(i.expiresAt)}`}</td>
                   <td className="row-actions">
+                    {emailEnabled && !i.expired && <button className="btn ghost sm" onClick={async () => {
+                      try { await post(`/projects/${project.id}/invites/${i.id}/resend`); toast(`Invitation emailed to ${i.email}`); } catch (e) { toast((e as Error).message, true); }
+                    }}>Resend email</button>}
                     <button className="btn ghost sm" onClick={() => setExtending(i)}>{i.expired ? "Reopen" : "Extend"}</button>
                     <button className="btn ghost sm" onClick={async () => { try { await del(`/projects/${project.id}/invites/${i.id}`); invites.reload(); } catch (e) { toast((e as Error).message, true); } }}>Revoke</button>
                   </td>
@@ -115,12 +126,16 @@ export function MembersPage() {
         </section>
       )}
 
-      {inviting && <InviteModal onClose={() => setInviting(false)} onCreated={(email, link) => { setInviting(false); setCreated({ email, link }); invites.reload(); }} />}
+      {inviting && <InviteModal emailEnabled={emailEnabled} onClose={() => setInviting(false)} onCreated={(c) => { setInviting(false); setCreated(c); invites.reload(); }} />}
       {extending && <ExtendModal invite={extending} projectId={project.id} onClose={() => setExtending(null)} onDone={() => { setExtending(null); invites.reload(); toast("Invitation extended"); }} />}
       {editing && <EditAccessModal member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); members.reload(); toast("Access updated"); }} />}
       {created && (
         <Modal title="Invitation created" onClose={() => setCreated(null)}>
-          <p className="muted">Send this link to {created.email}. It works once, only for that email address, and stops working after the expiry you chose. Email is not sent automatically.</p>
+          {created.emailed
+            ? <p className="muted">We emailed the invitation to {created.email}. You can also send them this link yourself. It works once, only for that email address, and stops working after the expiry you chose.</p>
+            : created.emailError
+              ? <p className="error-text">The email to {created.email} could not be sent ({created.emailError}). Send them this link instead. It works once, only for that email address, and stops working after the expiry you chose.</p>
+              : <p className="muted">Send this link to {created.email}. It works once, only for that email address, and stops working after the expiry you chose.{emailEnabled ? " Use Resend email on the pending invitation if you would rather have the server email it." : ""}</p>}
           <div className="code"><code>{created.link}</code><CopyButton text={created.link} label="Copy invitation link" /></div>
           <div className="modal-actions"><button className="btn primary" onClick={() => setCreated(null)}>Done</button></div>
         </Modal>
@@ -144,18 +159,19 @@ function ExtendModal({ invite, projectId, onClose, onDone }: { invite: InviteInf
   );
 }
 
-function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (email: string, link: string) => void }) {
+function InviteModal({ emailEnabled, onClose, onCreated }: { emailEnabled: boolean; onClose: () => void; onCreated: (c: { email: string; link: string; emailed: boolean; emailError?: string }) => void }) {
   const { project, envs } = useProject();
   const [email, setEmail] = useState("");
   const [acc, setAcc] = useState<{ role: string; scope: "all" | "selected"; grants: Record<string, "read" | "write" | "none"> }>({ role: "viewer", scope: "all", grants: {} });
   const [days, setDays] = useState("7");
+  const [sendEmail, setSendEmail] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError("");
     try {
-      const r = await post(`/projects/${project.id}/invites`, { email, role: acc.role, scope: acc.role === "admin" ? "all" : acc.scope, grants: grantsOut(acc.grants), expiresInDays: Number(days) });
-      onCreated(email, `${location.origin}/invite/${r.token}`);
+      const r = await post(`/projects/${project.id}/invites`, { email, role: acc.role, scope: acc.role === "admin" ? "all" : acc.scope, grants: grantsOut(acc.grants), expiresInDays: Number(days), sendEmail: emailEnabled && sendEmail });
+      onCreated({ email, link: `${location.origin}/invite/${r.token}`, emailed: !!r.emailed, emailError: r.emailError });
     } catch (err) { setError((err as Error).message); setBusy(false); }
   }
   return (
@@ -166,8 +182,9 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         <div className="field"><label htmlFor="ix">Invitation expires</label>
           <select id="ix" className="select" value={days} onChange={(e) => setDays(e.target.value)}>{EXPIRY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <span className="hint">After that the link stops working until you extend it.</span></div>
+        {emailEnabled && <label className="check"><input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} /> Email the invitation to this address</label>}
         <FormError message={error} />
-        <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>Create invitation</button></div>
+        <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>{emailEnabled && sendEmail ? "Send invitation" : "Create invitation"}</button></div>
       </form>
     </Modal>
   );

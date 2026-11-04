@@ -16,7 +16,7 @@ export function authRoutes(app: FastifyInstance, ctx: AppCtx): void {
   const limit = { config: { rateLimit: { max: config.rateLimitMax, timeWindow: "1 minute" } } };
   const sessionExpiry = () => new Date(Date.now() + config.sessionTtlDays * 86_400_000);
 
-  app.get("/api/config", async () => ({ allowRegistration: config.allowRegistration }));
+  app.get("/api/config", async () => ({ allowRegistration: config.allowRegistration, emailEnabled: mailer.enabled }));
 
   app.post("/api/v1/auth/register", limit, async (req, reply) => {
     if (!config.allowRegistration) throw forbidden("Registration is disabled on this server");

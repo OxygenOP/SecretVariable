@@ -47,13 +47,14 @@ node apps/server/dist/index.js
 | `SV_SESSION_TTL_DAYS` | `30` | Web sign-in lifetime |
 | `SV_AUTH_RATE_LIMIT` | `20` | Login/register attempts per minute per IP |
 | `SV_LOG` | `true` | Request logging (the Authorization header is redacted) |
-| `SV_SMTP_URL` | unset | SMTP server for sign-in emails, e.g. `smtps://user:pass@smtp.example.com:465` or `smtp://user:pass@host:587`. Unset = no email, and email codes are hidden |
+| `SV_SMTP_URL` | unset | SMTP server for sign-in codes and invitation emails, e.g. `smtps://user:pass@smtp.example.com:465` or `smtp://user:pass@host:587`. Unset = no email, and email codes are hidden |
 | `SV_MAIL_FROM` | `SecretVariable <no-reply@localhost>` | The From address for emails |
+| `SV_PUBLIC_URL` | unset | The address people open, e.g. `https://secrets.example.com`. Used for the link in invitation emails. Unset: taken from the admin's browser, which is fine behind a single address but wrong behind some proxies |
 
 ## Email
-Email is used for one thing: one-time sign-in codes as a backup for two-step verification. It is optional. Set `SV_SMTP_URL` (and `SV_MAIL_FROM`) to enable it; use your provider's SMTP credentials (Postmark, SES, Mailgun, your own relay...). Make sure the From domain has SPF/DKIM so codes are not marked as spam.
+Email is optional. It is used for two things: one-time sign-in codes as a backup for two-step verification, and invitations (admins can have the server email an invitation link to the invitee instead of copying it to them). Set `SV_SMTP_URL` (and `SV_MAIL_FROM`, and `SV_PUBLIC_URL` so invitation links point at your real address) to enable it; use your provider's SMTP credentials (Postmark, SES, Mailgun, your own relay...). Make sure the From domain has SPF/DKIM so codes are not marked as spam.
 
-`SV_SMTP_URL=console` prints emails, including the codes, to the server log. It is only for development: never use it in production.
+Invitation emails contain the invitation link, which grants access to the invited address's account once they sign in, so treat your mail server like any other part of the system that handles invites. The link works once, only for the invited email address, and expires. `SV_SMTP_URL=console` prints emails, including the codes and invitation links, to the server log. It is only for development: never use it in production.
 
 ## HTTPS with a reverse proxy
 

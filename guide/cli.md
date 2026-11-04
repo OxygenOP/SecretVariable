@@ -66,6 +66,7 @@ svar env create preview --from production@4      # copy from v4
 
 ```bash
 svar invite dana@example.com --role viewer --envs staging --expires 3   # link valid for 3 days (1-30, default 7)
+svar invite dana@example.com --role editor --send-email                 # also email the link (needs SMTP on the server)
 svar accept <invite-token>
 svar members
 svar token create --name ci --env production --access read --expires 90

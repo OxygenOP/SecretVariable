@@ -13,7 +13,7 @@ export async function setup(overrides: Partial<Config> = {}, opts: { mailer?: Ma
   await migrate(pool);
   const config: Config = {
     databaseUrl: DB_URL, masterKey: generateKey(), host: "127.0.0.1", port: 0, webDir: null,
-    allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, smtpUrl: null, mailFrom: "test@example.com", ...overrides,
+    allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, smtpUrl: null, mailFrom: "test@example.com", publicUrl: null, ...overrides,
   };
   const app = await buildApp(config, pool, opts);
   return { app, pool, config };

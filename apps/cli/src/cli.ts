@@ -30,7 +30,7 @@ History
   rollback <version>
 
 Team
-  invite <email> [--role viewer|editor|admin] [--envs a,b --access read|write] [--expires DAYS]
+  invite <email> [--role viewer|editor|admin] [--envs a,b --access read|write] [--expires DAYS] [--send-email]
   accept <invite-token>
   members
   token create [--name N --env E --access read|write --expires DAYS] | token list | token revoke <id>

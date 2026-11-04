@@ -13,6 +13,8 @@ export interface Config {
   /** smtp://user:pass@host:587, smtps://..., or "console" (prints emails to the log; development only). Unset disables email. */
   smtpUrl: string | null;
   mailFrom: string;
+  /** Public address of this server (https://secrets.example.com), used for links in emails. Unset: derived from the request. */
+  publicUrl: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -33,5 +35,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     logger: (env.SV_LOG ?? "true") !== "false",
     smtpUrl: env.SV_SMTP_URL || null,
     mailFrom: env.SV_MAIL_FROM ?? "SecretVariable <no-reply@localhost>",
+    publicUrl: env.SV_PUBLIC_URL ? env.SV_PUBLIC_URL.trim().replace(/\/+$/, "") : null,
   };
 }

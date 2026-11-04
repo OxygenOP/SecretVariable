@@ -6,6 +6,7 @@ import { audit } from "../audit.js";
 import { authenticate } from "../auth.js";
 import { tx, type Q } from "../db.js";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "../errors.js";
+import { inviteMail, publicBaseUrl } from "../invite-mail.js";
 import { loadProject, orgRole, requireAdmin } from "../permissions.js";
 import { parse, uuidParam } from "../util.js";
 
@@ -41,7 +42,25 @@ async function adminCount(q: Q, projectId: string): Promise<number> {
   return r.rows[0].n;
 }
 
-export function teamRoutes(app: FastifyInstance, { pool }: AppCtx): void {
+export function teamRoutes(app: FastifyInstance, { pool, config, mailer }: AppCtx): void {
+  /** Build and send the invitation email. Throws when the mail server rejects it. */
+  async function sendInviteEmail(i: {
+    projectId: string; ctx: Awaited<ReturnType<typeof loadProject>>; inviterName: string; email: string; role: string;
+    scope: string; grants: Grant[]; token: string; expiresAt: Date; req: Parameters<typeof publicBaseUrl>[1];
+  }): Promise<void> {
+    const org = await pool.query("SELECT name FROM orgs WHERE id = $1", [i.ctx.project.orgId]);
+    let access = "all environments";
+    if (i.role !== "admin" && i.scope === "selected") {
+      const names = await pool.query("SELECT id, name FROM environments WHERE project_id = $1", [i.projectId]);
+      const byId = new Map<string, string>(names.rows.map((r) => [r.id as string, r.name as string]));
+      access = i.grants.map((g) => `${byId.get(g.environmentId) ?? "an environment"} (${g.access})`).join(", ") || "no environments yet";
+    }
+    await mailer.send(inviteMail({
+      to: i.email, inviterName: i.inviterName, projectName: i.ctx.project.name, orgName: org.rows[0]?.name ?? "SecretVariable",
+      role: i.role, access, link: `${publicBaseUrl(config, i.req)}/invite/${i.token}`, expiresAt: new Date(i.expiresAt),
+    }));
+  }
+
   // ---- project members -------------------------------------------------
   app.get("/api/v1/projects/:projectId/members", async (req) => {
     const a = await authenticate(pool, req);
@@ -115,9 +134,10 @@ export function teamRoutes(app: FastifyInstance, { pool }: AppCtx): void {
   app.post("/api/v1/projects/:projectId/invites", async (req, reply) => {
     const a = await authenticate(pool, req);
     const { projectId } = parse(z.object({ projectId: uuidParam }), req.params);
-    const body = parse(accessSchema.extend({ email: z.string().trim().toLowerCase().email().max(254), expiresInDays: z.number().int().min(1).max(30).default(7) }), req.body);
+    const body = parse(accessSchema.extend({ email: z.string().trim().toLowerCase().email().max(254), expiresInDays: z.number().int().min(1).max(30).default(7), sendEmail: z.boolean().default(false) }), req.body);
     const ctx = await loadProject(pool, a, projectId);
     requireAdmin(ctx, a);
+    if (body.sendEmail && !mailer.enabled) throw badRequest("This server has no email configured (SV_SMTP_URL), so the invitation cannot be emailed. Share the link instead.");
     if (body.scope === "selected" && !body.grants.length) throw badRequest("Choose at least one environment for a limited invite");
     await checkGrants(pool, projectId, body.grants);
     const existing = await pool.query(
@@ -129,8 +149,47 @@ export function teamRoutes(app: FastifyInstance, { pool }: AppCtx): void {
        VALUES ($1,$2,$3,$4,$5,$6,$7, now() + ($8 || ' days')::interval) RETURNING id, expires_at AS "expiresAt"`,
       [projectId, body.email, body.role, body.scope, JSON.stringify(body.scope === "selected" ? body.grants : []), hashToken(token), a.user.id, String(body.expiresInDays)]);
     await audit(pool, { orgId: ctx.project.orgId, projectId, actorId: a.user.id, action: "invite.create", target: body.email, meta: { role: body.role, scope: body.scope }, ip: req.ip });
+    let emailed = false;
+    let emailError: string | undefined;
+    if (body.sendEmail) {
+      try {
+        await sendInviteEmail({ projectId, ctx, inviterName: a.user.name, email: body.email, role: body.role, scope: body.scope, grants: body.grants, token, expiresAt: r.rows[0].expiresAt, req });
+        emailed = true;
+        await audit(pool, { orgId: ctx.project.orgId, projectId, actorId: a.user.id, action: "invite.email", target: body.email, ip: req.ip });
+      } catch (e) {
+        emailError = (e as Error).message || "The mail server refused the message";
+        req.log.warn({ err: e }, "invite email failed");
+      }
+    }
     reply.code(201);
-    return { invite: { id: r.rows[0].id, email: body.email, expiresAt: r.rows[0].expiresAt }, token };
+    return { invite: { id: r.rows[0].id, email: body.email, expiresAt: r.rows[0].expiresAt }, token, emailed, ...(emailError ? { emailError } : {}) };
+  });
+
+  /**
+   * Email an existing invitation again. The stored link cannot be recovered (only its hash is kept),
+   * so this issues a fresh link, mails it, and only then retires the old one. The new link is returned too.
+   */
+  app.post("/api/v1/projects/:projectId/invites/:inviteId/resend", async (req) => {
+    const a = await authenticate(pool, req);
+    const p = parse(z.object({ projectId: uuidParam, inviteId: uuidParam }), req.params);
+    const ctx = await loadProject(pool, a, p.projectId);
+    requireAdmin(ctx, a);
+    if (!mailer.enabled) throw badRequest("This server has no email configured (SV_SMTP_URL), so invitations cannot be emailed.");
+    const r = await pool.query(
+      `SELECT id, email, role, scope, grants, expires_at FROM invites WHERE id = $1 AND project_id = $2 AND accepted_at IS NULL AND revoked_at IS NULL`,
+      [p.inviteId, p.projectId]);
+    const inv = r.rows[0];
+    if (!inv) throw notFound("Invite not found");
+    if (inv.expires_at <= new Date()) throw conflict("This invitation has expired. Reopen it first, then send it again.");
+    const token = generateToken("svi");
+    try {
+      await sendInviteEmail({ projectId: p.projectId, ctx, inviterName: a.user.name, email: inv.email, role: inv.role, scope: inv.scope, grants: inv.grants, token, expiresAt: inv.expires_at, req });
+    } catch (e) {
+      throw new HttpError(502, "email_failed", `The invitation email could not be sent: ${(e as Error).message || "the mail server refused it"}. The existing link still works.`);
+    }
+    await pool.query("UPDATE invites SET token_hash = $2 WHERE id = $1", [inv.id, hashToken(token)]);
+    await audit(pool, { orgId: ctx.project.orgId, projectId: p.projectId, actorId: a.user.id, action: "invite.email", target: inv.email, meta: { resend: true }, ip: req.ip });
+    return { emailed: true, token };
   });
 
   /** Give an invitation (including an expired one) a new deadline, counted from now. The link itself does not change. */

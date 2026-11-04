@@ -333,7 +333,7 @@ export const rollback: Cmd = async (p, io) => {
 // ---------------------------------------------------------------- team
 export const invite: Cmd = async (p, io) => {
   const email = p.positionals[0];
-  if (!email) throw new CliError("Usage: secretvariable invite <email> [--role viewer|editor|admin] [--envs dev,staging --access read|write] [--expires 1-30 days]");
+  if (!email) throw new CliError("Usage: secretvariable invite <email> [--role viewer|editor|admin] [--envs dev,staging --access read|write] [--expires 1-30 days] [--send-email]");
   const link = requireLink(io).link;
   const a = api(io);
   const role = str(p.flags.role) ?? "viewer";
@@ -351,9 +351,15 @@ export const invite: Cmd = async (p, io) => {
   const days = str(p.flags.expires) ? Number(str(p.flags.expires)) : undefined;
   if (days !== undefined && (!Number.isInteger(days) || days < 1 || days > 30)) throw new CliError("--expires must be a whole number of days from 1 to 30.");
   if (days) body = { ...body, expiresInDays: days };
+  const sendEmail = p.flags["send-email"] === true;
+  if (sendEmail) body = { ...body, sendEmail: true };
   const r = await a.post(`/projects/${link.projectId}/invites`, body);
   const server = requireCredentials(io).server;
-  io.out(`Invited ${email} as ${role}${names?.length ? ` (only: ${names.join(", ")})` : ""}.\nShare this link (expires ${r.invite.expiresAt.slice(0, 10)}):\n  ${server}/invite/${r.token}\nOr they can run: secretvariable accept ${r.token}`);
+  const who = `${email} as ${role}${names?.length ? ` (only: ${names.join(", ")})` : ""}`;
+  const share = `Share this link (expires ${r.invite.expiresAt.slice(0, 10)}):\n  ${server}/invite/${r.token}\nOr they can run: secretvariable accept ${r.token}`;
+  if (sendEmail && r.emailed) io.out(`Invited ${who}. The invitation was emailed to ${email}.\nThe link, in case you want it as well (expires ${r.invite.expiresAt.slice(0, 10)}):\n  ${server}/invite/${r.token}`);
+  else if (sendEmail) io.out(`Invited ${who}, but the email could not be sent (${r.emailError ?? "unknown error"}).\n${share}`);
+  else io.out(`Invited ${who}.\n${share}`);
 };
 
 export const accept: Cmd = async (p, io) => {
