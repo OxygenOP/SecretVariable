@@ -33,9 +33,11 @@ Teams keep `.env` files in chat threads, password managers and the heads of whoe
 | ![Version history](assets/screenshots/history.png) | ![Comparing two versions](assets/screenshots/compare.png) |
 | ![Inviting someone to selected environments](assets/screenshots/invite.png) | ![Projects overview](assets/screenshots/projects.png) |
 
-Phone layout:
+Phone layout and the native desktop app (Tauri):
 
 <img src="assets/screenshots/mobile.png" width="260" alt="Phone layout" />
+
+![The desktop app showing the projects overview](assets/screenshots/desktop.png)
 
 </details>
 
