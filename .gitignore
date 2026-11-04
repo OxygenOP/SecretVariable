@@ -15,3 +15,8 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Local agent skills
+.agents/
+.claude/
+skills-lock.json
