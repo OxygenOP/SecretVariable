@@ -5,6 +5,14 @@ let ctx: Awaited<ReturnType<typeof setup>>;
 beforeAll(async () => { ctx = await setup(); });
 afterAll(async () => { await ctx.app.close(); await ctx.pool.end(); });
 
+describe("health", () => {
+  it("is public and CORS-open", async () => {
+    const r = await ctx.app.inject({ method: "GET", url: "/api/health" });
+    expect(r.json()).toEqual({ ok: true });
+    expect(r.headers["access-control-allow-origin"]).toBe("*");
+  });
+});
+
 describe("auth", () => {
   it("registers, logs in, returns me, logs out", async () => {
     const c = new Client(ctx.app);
