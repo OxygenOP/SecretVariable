@@ -16,6 +16,8 @@ await build({
   format: "esm",
   target: "node20",
   legalComments: "none",
+  // Resolve the workspace package from its source so a fresh clone can publish without building every package first.
+  alias: { "@secretvariable/shared": join(root, "../../packages/shared/src/index.ts") },
   // the entry file already starts with a #! line, which esbuild preserves
   define: { __PKG_VERSION__: JSON.stringify(pkg.version) },
 });
