@@ -4,10 +4,11 @@ Installing the package gives you two names for the same program: **`svar`** (sho
 
 ## Install
 
-Once published to npm:
+From npm (Node.js 20+; the package is one file with no dependencies):
 
 ```bash
 npm install -g @secretvariable/cli
+svar --version
 ```
 
 From source (Node.js 20+, pnpm):

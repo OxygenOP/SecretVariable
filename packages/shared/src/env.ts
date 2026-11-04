@@ -21,13 +21,21 @@ export function parseEnv(text: string): EnvMap {
     const q = rest[0];
     if (q === '"' || q === "'") {
       // quoted value, possibly spanning lines
+      const startLine = i;
       let body = rest.slice(1);
       let closed = findClosing(body, q);
       while (closed < 0 && i + 1 < lines.length) {
         body += "\n" + lines[++i]!;
         closed = findClosing(body, q);
       }
-      const inner = closed >= 0 ? body.slice(0, closed) : body;
+      if (closed < 0) {
+        // The quote never closes. Do not let one stray quote swallow every variable below it:
+        // keep the line as a plain value (quote included) and carry on from the next line.
+        i = startLine;
+        out[key] = rest.trim();
+        continue;
+      }
+      const inner = body.slice(0, closed);
       out[key] = q === '"' ? unescapeDouble(inner) : inner;
     } else {
       // unquoted: strip inline comment preceded by whitespace

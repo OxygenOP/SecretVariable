@@ -1,31 +1,57 @@
 {
   "name": "@secretvariable/cli",
-  "version": "0.0.0",
-  "private": false,
-  "description": "Command-line tool to pull, push and run .env files stored in SecretVariable",
+  "version": "0.1.0",
+  "description": "Pull, push and run .env files stored in a self-hosted SecretVariable server",
+  "keywords": [
+    "env",
+    "dotenv",
+    "secrets",
+    "environment-variables",
+    "secret-manager",
+    "self-hosted",
+    "cli",
+    "devops"
+  ],
+  "homepage": "https://github.com/OxygenOP/SecretVariable#readme",
+  "bugs": {
+    "url": "https://github.com/OxygenOP/SecretVariable/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OxygenOP/SecretVariable.git",
+    "directory": "apps/cli"
+  },
+  "author": "OxygenOP",
   "license": "MIT",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "dev": "tsx src/index.ts"
-  },
-  "dependencies": {
-    "@secretvariable/shared": "workspace:*"
-  },
-  "devDependencies": {
-    "@secretvariable/crypto": "workspace:*",
-    "tsx": "^4.23.15",
-    "vitest": "^5.1.0"
-  },
   "bin": {
-    "secretvariable": "dist/index.js",
-    "svar": "dist/index.js"
+    "svar": "dist/index.js",
+    "secretvariable": "dist/index.js"
   },
   "files": [
-    "dist"
-  ]
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node scripts/bundle.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/index.ts",
+    "prepack": "node scripts/bundle.mjs && node scripts/check-pack.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@secretvariable/crypto": "workspace:*",
+    "@secretvariable/shared": "workspace:*",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "vitest": "^5.1.0"
+  }
 }

@@ -2,7 +2,9 @@ import * as c from "./commands.js";
 import { parseArgs } from "./args.js";
 import { CliError, type IO } from "./io.js";
 
-export const VERSION = "0.1.0";
+declare const __PKG_VERSION__: string | undefined;
+/** Injected from package.json by the bundler; falls back to the package.json value when run from source (tests, tsx). */
+export const VERSION: string = typeof __PKG_VERSION__ === "string" ? __PKG_VERSION__ : "0.1.0";
 
 const HELP = `secretvariable ${VERSION}: store and sync .env files
 

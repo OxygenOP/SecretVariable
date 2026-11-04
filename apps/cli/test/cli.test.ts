@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { base32Decode, generateKey, totpCode } from "@secretvariable/crypto";
 import { buildApp } from "../../server/src/app.js";
 import { createPool, migrate } from "../../server/src/db.js";
-import { main } from "../src/cli.js";
+import { main, VERSION } from "../src/cli.js";
 import type { IO } from "../src/io.js";
 
 const DB = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost:5432/secretvariable_test";
@@ -23,6 +23,11 @@ beforeAll(async () => {
   close = async () => { await app.close(); await pool.end(); };
 });
 afterAll(async () => { await close(); });
+
+it("reports the version in package.json", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+  expect(VERSION).toBe(pkg.version);
+});
 
 class Machine {
   home = mkdtempSync(join(tmpdir(), "sv-home-"));

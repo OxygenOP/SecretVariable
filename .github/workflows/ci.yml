@@ -29,6 +29,11 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
+      - name: CLI installs from its tarball
+        run: |
+          mkdir -p /tmp/pack && cd apps/cli && npm pack --pack-destination /tmp/pack
+          npm install -g --prefix /tmp/prefix /tmp/pack/secretvariable-cli-*.tgz
+          /tmp/prefix/bin/svar --version && /tmp/prefix/bin/secretvariable help > /dev/null
 
   docker:
     runs-on: ubuntu-latest

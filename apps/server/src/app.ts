@@ -22,9 +22,20 @@ export async function buildApp(config: Config, pool: pg.Pool, opts: { mailer?: M
   const mailer = opts.mailer ?? createMailer(config, (s) => app.log.info(s));
   const ctx = { pool, config, mailer };
 
+  // API responses can carry secret values: never let a browser, proxy or CDN store them.
+  app.addHook("onSend", async (req, reply) => {
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("referrer-policy", "no-referrer");
+    reply.header("x-frame-options", "DENY");
+    reply.header("content-security-policy", "frame-ancestors 'none'");
+    if (req.url.startsWith("/api/") && !req.url.startsWith("/api/health")) reply.header("cache-control", "no-store");
+  });
+
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: { code: err.code, message: err.message } });
     if (err instanceof ZodError) return reply.code(400).send({ error: { code: "bad_request", message: err.issues[0]?.message ?? "Invalid request" } });
+    // two requests racing to create the same unique thing (an email, a name): the loser gets a clean 409, not a 500
+    if ((err as { code?: string }).code === "23505") return reply.code(409).send({ error: { code: "conflict", message: "That already exists" } });
     const e = err as { statusCode?: number; message?: string };
     if (e.statusCode && e.statusCode < 500) return reply.code(e.statusCode).send({ error: { code: "request_error", message: e.message ?? "Bad request" } });
     req.log.error(err);
