@@ -232,7 +232,7 @@ export function TokensPage() {
         <Modal title="Copy your token now" onClose={() => setShown(null)}>
           <p className="muted">This is the only time it is shown. Store it in your CI system's secret store.</p>
           <div className="code"><code>{shown}</code><CopyButton text={shown} label="Copy token" /></div>
-          <CodeLine>{`SECRETVARIABLE_URL=${location.origin} SECRETVARIABLE_TOKEN=... sv pull`}</CodeLine>
+          <CodeLine>{`SECRETVARIABLE_URL=${location.origin} SECRETVARIABLE_TOKEN=... secvar pull`}</CodeLine>
           <div className="modal-actions"><button className="btn primary" onClick={() => setShown(null)}>I have stored it</button></div>
         </Modal>
       )}

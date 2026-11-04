@@ -1,6 +1,6 @@
 # Command-line reference
 
-Installing the package gives you two names for the same program: **`sv`** (short, used throughout this guide) and `secretvariable`. Use whichever you prefer; hints and errors print the name you typed.
+Installing the package gives you two names for the same program: **`secvar`** (short, used throughout this guide) and `secretvariable`. Use whichever you prefer; hints and errors print the name you typed. (The short name is not `sv` because that is already the Svelte CLI and, on many Linux systems, the runit `sv` command.)
 
 ## Install
 
@@ -20,17 +20,17 @@ node apps/cli/dist/index.js help     # or: pnpm --filter @secretvariable/cli lin
 ## Sign in
 
 ```bash
-sv login --server https://secrets.example.com
+secvar login --server https://secrets.example.com
 ```
 
-You are asked for your email and password (they can also be passed with `--email` and `--password`). The password is exchanged for a 90-day personal token and is never stored. Credentials live in `~/.config/secretvariable/config.json` (mode `0600`). `sv login --token <token>` signs in with an existing token. `sv logout` forgets the local credentials; revoke the token in the web app (Account) or with `sv token revoke <id>`.
+You are asked for your email and password (they can also be passed with `--email` and `--password`). The password is exchanged for a 90-day personal token and is never stored. Credentials live in `~/.config/secretvariable/config.json` (mode `0600`). `secvar login --token <token>` signs in with an existing token. `secvar logout` forgets the local credentials; revoke the token in the web app (Account) or with `secvar token revoke <id>`.
 
 ## Link a folder to a project
 
 ```bash
-sv init                                   # choose interactively
-sv init --org acme --project payments-api # no prompts
-sv init --create --project "New app"      # create it first
+secvar init                                   # choose interactively
+secvar init --org acme --project payments-api # no prompts
+secvar init --create --project "New app"      # create it first
 ```
 
 This writes `.secretvariable.json` (project id and current environment; contains no secrets, safe to commit).
@@ -47,30 +47,30 @@ This writes `.secretvariable.json` (project id and current environment; contains
 ## History
 
 ```bash
-sv log                  # versions of the current environment
-sv diff 3 4             # key names only
-sv diff 3 4 --reveal    # with values (recorded in the audit log)
-sv rollback 3           # saves v3's content as a new version
+secvar log                  # versions of the current environment
+secvar diff 3 4             # key names only
+secvar diff 3 4 --reveal    # with values (recorded in the audit log)
+secvar rollback 3           # saves v3's content as a new version
 ```
 
 ## Environments
 
 ```bash
-sv env list
-sv env use staging
-sv env create preview --from production        # copy from the head
-sv env create preview --from production@4      # copy from v4
+secvar env list
+secvar env use staging
+secvar env create preview --from production        # copy from the head
+secvar env create preview --from production@4      # copy from v4
 ```
 
 ## Team and tokens
 
 ```bash
-sv invite dana@example.com --role viewer --envs staging
-sv accept <invite-token>
-sv members
-sv token create --name ci --env production --access read --expires 90
-sv token list
-sv token revoke <id>
+secvar invite dana@example.com --role viewer --envs staging
+secvar accept <invite-token>
+secvar members
+secvar token create --name ci --env production --access read --expires 90
+secvar token list
+secvar token revoke <id>
 ```
 
 ## Using it in CI
@@ -79,7 +79,7 @@ Create a read-only service token for one environment and store it as a CI secret
 
 ```yaml
 # GitHub Actions example
-- run: npx -p @secretvariable/cli sv pull --force
+- run: npx -p @secretvariable/cli secvar pull --force
   env:
     SECRETVARIABLE_URL: ${{ secrets.SV_URL }}
     SECRETVARIABLE_TOKEN: ${{ secrets.SV_TOKEN }}

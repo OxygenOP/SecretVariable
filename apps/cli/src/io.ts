@@ -1,5 +1,5 @@
 export interface IO {
-  /** Name the program was started as ("sv" or "secretvariable"); used so hints show the command the user typed. */
+  /** Name the program was started as ("secvar" or "secretvariable"); used so hints show the command the user typed. */
   prog?: string;
   cwd: string;
   env: NodeJS.ProcessEnv;

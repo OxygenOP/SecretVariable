@@ -11,7 +11,7 @@ Versioned environments, encrypted at rest, shared with exactly the people who ne
 
 ![Variables view with masked values and a "last changed" column](assets/screenshots/variables.png)
 
-Teams keep `.env` files in chat threads, password managers and the heads of whoever set the project up. SecretVariable gives them one place: sign in, pick a project and environment, and `sv pull` writes the `.env` your code needs. Every change is a numbered version you can compare and roll back.
+Teams keep `.env` files in chat threads, password managers and the heads of whoever set the project up. SecretVariable gives them one place: sign in, pick a project and environment, and `secvar pull` writes the `.env` your code needs. Every change is a numbered version you can compare and roll back.
 
 ## Features
 
@@ -60,19 +60,19 @@ Open <http://localhost:8080>, create your account (you become the owner of a per
 
 ## Command line
 
-The command is `sv` (the long name `secretvariable` works too).
+The command is `secvar` (the long name `secretvariable` works too).
 
 ```bash
 npm install -g @secretvariable/cli     # once published; until then see guide/cli.md to build it
-sv login --server https://secrets.example.com
+secvar login --server https://secrets.example.com
 cd my-project
-sv init                    # link this folder to a project
-sv pull                    # writes .env from the current environment
-sv push -m "rotate Stripe key"
-sv run -- npm start        # inject variables, nothing written to disk
-sv log                     # version history
-sv diff 3 4                # what changed
-sv rollback 3
+secvar init                    # link this folder to a project
+secvar pull                    # writes .env from the current environment
+secvar push -m "rotate Stripe key"
+secvar run -- npm start        # inject variables, nothing written to disk
+secvar log                     # version history
+secvar diff 3 4                # what changed
+secvar rollback 3
 ```
 
 In CI, set `SECRETVARIABLE_URL` and `SECRETVARIABLE_TOKEN` (a read-only service token for one environment) instead of logging in. Full reference: [guide/cli.md](guide/cli.md).

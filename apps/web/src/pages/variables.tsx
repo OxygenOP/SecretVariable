@@ -164,7 +164,7 @@ export function VariablesPage() {
           <h3>{env.name} has no variables yet</h3>
           <p>{canWrite ? "Paste an existing .env file here, or push one from your project folder with the CLI." : "Someone with write access needs to add variables first."}</p>
           {canWrite && <div className="actions"><button className="btn primary" onClick={async () => { setEdit([]); setPaste(true); setValues({}); }}>Paste a .env file</button></div>}
-          <CodeLine>{`sv push --env ${env.name}`}</CodeLine>
+          <CodeLine>{`secvar push --env ${env.name}`}</CodeLine>
         </div>
       ) : (
         <section>
@@ -190,7 +190,7 @@ export function VariablesPage() {
               {!shown.length && <tr><td colSpan={4} className="muted">No variables match "{query}".</td></tr>}
             </tbody>
           </table>
-          <div className="stack-top"><CodeLine>{`sv pull --env ${env.name}`}</CodeLine></div>
+          <div className="stack-top"><CodeLine>{`secvar pull --env ${env.name}`}</CodeLine></div>
         </section>
       )}
 
