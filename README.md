@@ -1,37 +1,102 @@
+<div align="center">
+
 # SecretVariable
 
-Open-source, self-hostable secret manager for `.env` files, with versioned environments.
+**Open-source, self-hostable home for your `.env` files.**
+Versioned environments, encrypted at rest, shared with exactly the people who need them.
 
-> Status: early development. Nothing is usable yet.
+[Quick start](#quick-start) · [Features](#features) · [CLI](#command-line) · [Self-hosting](guide/self-hosting.md) · [Security](guide/security.md) · [Contributing](CONTRIBUTING.md)
 
-## Planned
+</div>
 
-- Organisations, projects and named environments (dev, staging, prod) with linear version history
-- Encrypted storage (AES-256-GCM envelope encryption)
-- Web app, CLI (`secretvariable pull` / `push` / `run`) and desktop app
-- Invites and per-environment access control
-- Self-hosting with Docker + PostgreSQL
+![Variables view with masked values and a "last changed" column](assets/screenshots/variables.png)
 
-## Repository layout
+Teams keep `.env` files in chat threads, password managers and the heads of whoever set the project up. SecretVariable gives them one place: sign in, pick a project and environment, and `secretvariable pull` writes the `.env` your code needs. Every change is a numbered version you can compare and roll back.
 
-```
-apps/server     API server
-apps/cli        command-line tool
-apps/web        web application
-packages/shared shared types
-packages/crypto encryption helpers
-deploy/         Docker and deployment files
-```
+## Features
 
-## Development
+- **Projects and environments.** An organisation owns projects; each project has named environments (development, staging, production, anything you add). Each environment has its own linear version history.
+- **Versions, diffs, rollback.** Saving creates `v1, v2, v3 ...`. Compare any two versions (key names by default, values only on request) and roll back by saving an old version as a new one. Nothing is rewritten.
+- **Encrypted at rest.** AES-256-GCM envelope encryption: a master key you control wraps a data key per project, and every value is sealed with its own nonce and bound to its key and version.
+- **Access control.** Admin, editor and viewer roles, plus per-environment access: give a contractor read access to `staging` only. Hidden environments simply do not exist for them.
+- **Invitations.** Single-use, email-bound, expiring links. No mail server required.
+- **Web app, CLI and desktop shell.** View and edit variables in the browser (masked until you reveal them), `pull`/`push`/`run` from the terminal, or use the Tauri desktop wrapper.
+- **CI-friendly tokens.** Project- and environment-scoped, read-only or read/write service tokens that expire and can be revoked.
+- **Audit log.** Who read, changed or shared what, and when. Secret values are never written to it.
+- **Self-hostable in one image.** One container (API + web app) and PostgreSQL. MIT licensed.
 
-Requires Node.js 20+ and pnpm.
+<details>
+<summary>More screenshots</summary>
+
+| | |
+|---|---|
+| ![Version history](assets/screenshots/history.png) | ![Comparing two versions](assets/screenshots/compare.png) |
+| ![Inviting someone to selected environments](assets/screenshots/invite.png) | ![Projects overview](assets/screenshots/projects.png) |
+
+Phone layout:
+
+<img src="assets/screenshots/mobile.png" width="260" alt="Phone layout" />
+
+</details>
+
+## Quick start
+
+You need Docker with Compose.
 
 ```bash
-pnpm install
-pnpm typecheck
+git clone https://github.com/OxygenOP/SecretVariable.git
+cd SecretVariable
+export SV_MASTER_KEY=$(openssl rand -hex 32)   # back this up: without it the data cannot be decrypted
+echo "$SV_MASTER_KEY" > master.key && chmod 600 master.key   # keep it OUT of the repository
+docker compose up -d
 ```
+
+Open <http://localhost:8080>, create your account (you become the owner of a personal workspace), then create a project.
+
+> Put the app behind HTTPS (Caddy, nginx, Traefik) before exposing it. See the [self-hosting guide](guide/self-hosting.md) for a proxy example, backups and upgrades.
+
+## Command line
+
+```bash
+npm install -g @secretvariable/cli     # once published; until then see guide/cli.md to build it
+secretvariable login --server https://secrets.example.com
+cd my-project
+secretvariable init                    # link this folder to a project
+secretvariable pull                    # writes .env from the current environment
+secretvariable push -m "rotate Stripe key"
+secretvariable run -- npm start        # inject variables, nothing written to disk
+secretvariable log                     # version history
+secretvariable diff 3 4                # what changed
+secretvariable rollback 3
+```
+
+In CI, set `SECRETVARIABLE_URL` and `SECRETVARIABLE_TOKEN` (a read-only service token for one environment) instead of logging in. Full reference: [guide/cli.md](guide/cli.md).
+
+## How it is built
+
+```
+apps/server   Fastify + PostgreSQL API (auth, orgs, projects, environments, versions, audit)
+apps/web      React + Vite web app, served by the server
+apps/cli      the `secretvariable` command
+apps/desktop  Tauri shell around your server's web app
+packages/crypto  envelope encryption primitives (AES-256-GCM)
+packages/shared  .env parser/serializer/diff and shared types
+```
+
+TypeScript throughout, pnpm workspaces. See [guide/development.md](guide/development.md) to run it locally and [guide/architecture.md](guide/architecture.md) for the design.
+
+## Security in one paragraph
+
+The server encrypts values with keys derived from a master key you provide, so **whoever controls the server and its master key can read the secrets**. That is the trade-off that makes online viewing, sharing and rollback possible. It is not a zero-knowledge system. Passwords use Argon2id, tokens are stored only as hashes, every read is audited, and there are no secret values in logs. Read [guide/security.md](guide/security.md) for the threat model, what is and is not protected, and how to report a vulnerability ([SECURITY.md](SECURITY.md)).
+
+## Status
+
+Early software (`0.x`). The API, CLI and web app are covered by automated tests (server and CLI integration tests against PostgreSQL, a browser end-to-end test). Not yet implemented: two-factor authentication, master-key rotation tooling, email delivery, SSO, GitHub/Vercel secret sync. See the [roadmap](guide/roadmap.md).
+
+## Contributing
+
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © OxygenOP
