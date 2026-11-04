@@ -1,0 +1,37 @@
+import Fastify, { type FastifyInstance } from "fastify";
+import rateLimit from "@fastify/rate-limit";
+import { ZodError } from "zod";
+import type pg from "pg";
+import type { Config } from "./config.js";
+import { HttpError } from "./errors.js";
+import { authRoutes } from "./routes/auth.js";
+import { environmentRoutes } from "./routes/environments.js";
+import { orgRoutes } from "./routes/orgs.js";
+import { projectRoutes } from "./routes/projects.js";
+
+export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyInstance> {
+  const app = Fastify({ logger: config.logger ? { redact: ["req.headers.authorization"] } : false, trustProxy: true, bodyLimit: 2 * 1024 * 1024 });
+  await app.register(rateLimit, { global: false });
+  const ctx = { pool, config };
+
+  app.setErrorHandler((err, req, reply) => {
+    if (err instanceof HttpError) return reply.code(err.status).send({ error: { code: err.code, message: err.message } });
+    if (err instanceof ZodError) return reply.code(400).send({ error: { code: "bad_request", message: err.issues[0]?.message ?? "Invalid request" } });
+    const e = err as { statusCode?: number; message?: string };
+    if (e.statusCode && e.statusCode < 500) return reply.code(e.statusCode).send({ error: { code: "request_error", message: e.message ?? "Bad request" } });
+    req.log.error(err);
+    return reply.code(500).send({ error: { code: "internal", message: "Internal server error" } });
+  });
+
+  app.get("/api/health", async () => ({ ok: true }));
+  authRoutes(app, ctx);
+  orgRoutes(app, ctx);
+  projectRoutes(app, ctx);
+  environmentRoutes(app, ctx);
+
+  app.setNotFoundHandler((req, reply) => {
+    if (req.url.startsWith("/api/")) return reply.code(404).send({ error: { code: "not_found", message: "Not found" } });
+    return reply.code(404).send("Not found");
+  });
+  return app;
+}
