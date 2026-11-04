@@ -14,7 +14,7 @@ The server keeps secrets encrypted at rest and decrypts them only to serve an au
 
 ## What is NOT protected
 - **A malicious or compromised server operator.** Anyone with the master key and database access can decrypt everything. This is not a zero-knowledge design.
-- **A compromised machine** that has pulled a `.env`: the file is plain text on disk (mode `0600`). Prefer `secretvariable run -- cmd` where you can.
+- **A compromised machine** that has pulled a `.env`: the file is plain text on disk (mode `0600`). Prefer `sv run -- cmd` where you can.
 - **Variable names and version messages** are stored in plain text.
 - **Account takeover** through a weak or reused password: there is no two-factor authentication yet.
 - **Browser storage.** The web app keeps its session token in `localStorage`; an XSS bug would expose it. The app sets no cookies and renders all values through React's escaping.

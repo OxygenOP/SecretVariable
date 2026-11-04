@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { AuditEntry, InviteInfo, MemberInfo } from "@secretvariable/shared";
 import { del, get, patch, post, put } from "../api";
-import { CodeLine, CopyButton, ErrorBox, Icon, Loading, Modal, Who, absTime, relTime, useAsync, usePageTitle, useToast } from "../ui";
+import { CodeLine, CopyButton, ErrorBox, FormError, Icon, Loading, Modal, Who, absTime, relTime, useAsync, usePageTitle, useToast } from "../ui";
 import { actionLabel } from "./labels";
 import { useProject } from "./project";
 
@@ -25,7 +25,7 @@ function AccessEditor({ initial, envs, onChange }: { initial: { role: string; sc
           <label className="check"><input type="radio" name="scope" checked={initial.scope === "all"} onChange={() => set({ scope: "all" })} /> All environments</label>
           <label className="check"><input type="radio" name="scope" checked={initial.scope === "selected"} onChange={() => set({ scope: "selected" })} /> Only selected environments</label>
           {initial.scope === "selected" && (
-            <div className="list-rows" style={{ marginTop: 6 }}>
+            <div className="list-rows">
               {envs.map((e) => (
                 <div key={e.id}>
                   <span className="mono">{e.name}</span>
@@ -66,7 +66,7 @@ export function MembersPage() {
   return (
     <>
       <div className="toolbar">
-        <div className="left"><h2 style={{ fontSize: 20, fontWeight: 400, color: "var(--muted)" }}>{admin ? "People with access" : "Your access"}</h2></div>
+        <div className="left"><h2>{admin ? "People with access" : "Your access"}</h2></div>
         {admin && <div className="right"><button className="btn primary" onClick={() => setInviting(true)}><Icon name="plus" /> Invite someone</button></div>}
       </div>
       {members.error ? <ErrorBox error={members.error} retry={members.reload} /> : members.loading ? <Loading /> : (
@@ -139,7 +139,7 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       <form className="form" onSubmit={submit}>
         <div className="field"><label htmlFor="ie">Email</label><input id="ie" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teammate@company.com" autoFocus required /></div>
         <AccessEditor initial={acc} envs={envs} onChange={setAcc} />
-        {error && <div className="error-text" role="alert">{error}</div>}
+        <FormError message={error} />
         <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>Create invitation</button></div>
       </form>
     </Modal>
@@ -156,7 +156,7 @@ function EditAccessModal({ member, onClose, onSaved }: { member: Member; onClose
     <Modal title={`Access for ${member.name}`} onClose={onClose}>
       <div className="form">
         <AccessEditor initial={acc} envs={envs} onChange={setAcc} />
-        {error && <div className="error-text" role="alert">{error}</div>}
+        <FormError message={error} />
         <div className="modal-actions"><button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn primary" onClick={async () => {
             try { await put(`/projects/${project.id}/members/${member.userId}`, { role: acc.role, scope: acc.role === "admin" ? "all" : acc.scope, grants: grantsOut(acc.grants) }); onSaved(); }
@@ -191,7 +191,7 @@ export function TokensPage() {
   return (
     <>
       <div className="toolbar">
-        <div className="left"><h2 style={{ fontSize: 20, fontWeight: 400, color: "var(--muted)" }}>Service tokens</h2><span className="muted">For CI and deployments. They act as you and are limited to this project.</span></div>
+        <div className="left"><h2>Service tokens</h2><span className="muted">For CI and deployments. They act as you and are limited to this project.</span></div>
         <div className="right"><button className="btn primary" onClick={() => setCreating(true)}><Icon name="plus" /> New token</button></div>
       </div>
       {tokens.error ? <ErrorBox error={tokens.error} retry={tokens.reload} /> : tokens.loading ? <Loading /> : !tokens.data!.length ? (
@@ -223,7 +223,7 @@ export function TokensPage() {
               <select id="ta" className="select" value={access} onChange={(e) => setAccess(e.target.value)}><option value="read">Read only</option><option value="write">Read and write</option></select></div>
             <div className="field"><label htmlFor="tx">Expires</label>
               <select id="tx" className="select" value={expires} onChange={(e) => setExpires(e.target.value)}><option value="30">In 30 days</option><option value="90">In 90 days</option><option value="365">In a year</option><option value="">Never</option></select></div>
-            {error && <div className="error-text" role="alert">{error}</div>}
+            <FormError message={error} />
             <div className="modal-actions"><button type="button" className="btn" onClick={() => setCreating(false)}>Cancel</button><button className="btn primary">Create token</button></div>
           </form>
         </Modal>
@@ -232,7 +232,7 @@ export function TokensPage() {
         <Modal title="Copy your token now" onClose={() => setShown(null)}>
           <p className="muted">This is the only time it is shown. Store it in your CI system's secret store.</p>
           <div className="code"><code>{shown}</code><CopyButton text={shown} label="Copy token" /></div>
-          <CodeLine>{`SECRETVARIABLE_URL=${location.origin} SECRETVARIABLE_TOKEN=... secretvariable pull`}</CodeLine>
+          <CodeLine>{`SECRETVARIABLE_URL=${location.origin} SECRETVARIABLE_TOKEN=... sv pull`}</CodeLine>
           <div className="modal-actions"><button className="btn primary" onClick={() => setShown(null)}>I have stored it</button></div>
         </Modal>
       )}
@@ -247,7 +247,7 @@ export function AuditPage() {
   const log = useAsync(() => get(`/projects/${project.id}/audit`).then((r) => r.entries as AuditEntry[]), [project.id]);
   return (
     <>
-      <div className="toolbar"><div className="left"><h2 style={{ fontSize: 20, fontWeight: 400, color: "var(--muted)" }}>Audit log</h2><span className="muted">Every read, change and access decision. Secret values are never recorded.</span></div><div className="right"><button className="btn" onClick={log.reload}>Refresh</button></div></div>
+      <div className="toolbar"><div className="left"><h2>Audit log</h2><span className="muted">Every read, change and access decision. Secret values are never recorded.</span></div><div className="right"><button className="btn" onClick={log.reload}>Refresh</button></div></div>
       {log.error ? <ErrorBox error={log.error} retry={log.reload} /> : log.loading ? <Loading /> : (
         <table className="table" aria-label="Audit log">
           <thead><tr><th>When</th><th>Who</th><th>What</th><th className="wide">Target</th><th className="hide-sm num">From</th></tr></thead>
@@ -315,7 +315,7 @@ export function SettingsPage() {
             }, "Environment created");
           }}>
             <div className="field"><label htmlFor="ne">Add an environment</label>
-              <div className="actions" style={{ flexWrap: "nowrap" }}>
+              <div className="inline-form">
                 <input id="ne" className="input" value={newEnv} onChange={(e) => setNewEnv(e.target.value)} placeholder="preview" />
                 <select className="select" aria-label="Copy variables from" value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}><option value="">Start empty</option>{envs.filter((x) => x.headVersionId).map((x) => <option key={x.id} value={x.id}>Copy from {x.name}</option>)}</select>
                 <button className="btn" disabled={!newEnv.trim()}>Add</button>

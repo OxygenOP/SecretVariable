@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { basename } from "node:path";
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
 import { main } from "./cli.js";
@@ -15,7 +16,10 @@ async function ask(q: string, opts?: { secret?: boolean }): Promise<string | nul
   });
 }
 
+const invokedAs = basename(process.argv[1] ?? "").replace(/\.[cm]?js$/, "");
+
 const io: IO = {
+  prog: invokedAs === "sv" ? "sv" : "secretvariable",
   cwd: process.cwd(),
   env: process.env,
   out: (s) => console.log(s),

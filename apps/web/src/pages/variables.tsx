@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, useNavigate, useParams } from "react-router-dom";
 import { diffEnv, isValidKey, parseEnv, serializeEnv, type EnvMap, type VersionSummary } from "@secretvariable/shared";
 import { get, post } from "../api";
-import { CodeLine, CopyButton, ErrorBox, Icon, Loading, Modal, Signs, Who, absTime, copyText, relTime, useAsync, usePageTitle, useToast } from "../ui";
+import { CodeLine, CopyButton, ErrorBox, FormError, Icon, Loading, Modal, Signs, Who, absTime, copyText, relTime, useAsync, usePageTitle, useToast } from "../ui";
 import { useProject } from "./project";
 
 type VersionRow = VersionSummary & { summary: { added: string[]; changed: string[]; removed: string[] } | null };
@@ -25,7 +25,7 @@ function EnvTabs({ envName, section }: { envName: string; section: "variables" |
   const { project } = useProject();
   const base = `/p/${project.id}/e/${encodeURIComponent(envName)}`;
   return (
-    <div className="tabs tabs-sub" role="tablist" style={{ borderBottom: 0 }}>
+    <div className="tabs tabs-sub" role="tablist">
       <NavLink to={base} end role="tab" aria-selected={section === "variables"} className="tab">Variables</NavLink>
       <NavLink to={`${base}/history`} role="tab" aria-selected={section === "history"} className="tab">History</NavLink>
     </div>
@@ -154,7 +154,7 @@ export function VariablesPage() {
               ))}
             </tbody>
           </table>
-          <div className="actions" style={{ marginTop: 12 }}>
+          <div className="actions stack-top-sm">
             <button className="btn sm" onClick={() => setEdit([...edit, { key: "", value: "", id: nextId++ + edit.length }])}><Icon name="plus" /> Add variable</button>
             {draftErrors.map((e) => <span key={e} className="error-text">{e}</span>)}
           </div>
@@ -164,7 +164,7 @@ export function VariablesPage() {
           <h3>{env.name} has no variables yet</h3>
           <p>{canWrite ? "Paste an existing .env file here, or push one from your project folder with the CLI." : "Someone with write access needs to add variables first."}</p>
           {canWrite && <div className="actions"><button className="btn primary" onClick={async () => { setEdit([]); setPaste(true); setValues({}); }}>Paste a .env file</button></div>}
-          <CodeLine>{`secretvariable push --env ${env.name}`}</CodeLine>
+          <CodeLine>{`sv push --env ${env.name}`}</CodeLine>
         </div>
       ) : (
         <section>
@@ -190,7 +190,7 @@ export function VariablesPage() {
               {!shown.length && <tr><td colSpan={4} className="muted">No variables match "{query}".</td></tr>}
             </tbody>
           </table>
-          <div style={{ marginTop: 20 }}><CodeLine>{`secretvariable pull --env ${env.name}`}</CodeLine></div>
+          <div className="stack-top"><CodeLine>{`sv pull --env ${env.name}`}</CodeLine></div>
         </section>
       )}
 
@@ -218,7 +218,7 @@ function PasteModal({ onClose, onApply }: { onClose: () => void; onApply: (v: En
       <div className="field"><label htmlFor="paste">Contents</label><textarea id="paste" className="textarea" value={text} onChange={(e) => setText(e.target.value)} placeholder={"DATABASE_URL=postgres://...\nAPI_KEY=..."} autoFocus spellCheck={false} /></div>
       <label className="check"><input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} /> Replace all current variables instead of merging</label>
       <div className="modal-actions">
-        <span className="muted" style={{ marginRight: "auto", alignSelf: "center" }}>{n} {n === 1 ? "variable" : "variables"} found</span>
+        <span className="note">{n} {n === 1 ? "variable" : "variables"} found</span>
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn primary" disabled={!n} onClick={() => onApply(parsed, replace)}>Use these</button>
       </div>
@@ -247,7 +247,7 @@ function SaveModal({ envId, envName, before, after, onClose, onSaved }: { envId:
         </div>
       )}
       <div className="field"><label htmlFor="msg">Message</label><input id="msg" className="input" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Why did these change?" maxLength={200} autoFocus /></div>
-      {error && <div className="error-text" role="alert">{error}</div>}
+      <FormError message={error} />
       <div className="modal-actions"><button className="btn" onClick={onClose}>Back</button><button className="btn primary" disabled={busy || changes === 0} onClick={save}>Save new version</button></div>
     </Modal>
   );

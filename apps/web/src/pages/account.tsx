@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { del, get, patch, post } from "../api";
 import { useOrg } from "../App";
 import { useAuth } from "../auth";
+import { useTheme, type ThemePref } from "../theme";
 import { CodeLine, CopyButton, ErrorBox, Icon, Loading, Modal, Who, absTime, relTime, useAsync, usePageTitle, useToast } from "../ui";
 import { actionLabel } from "./labels";
 
@@ -16,7 +17,7 @@ export function InvitationsPage() {
     <div className="page">
       <div className="title-row"><div><h1>Invitations</h1><p className="sub">Projects you have been invited to join with this email address.</p></div></div>
       {inv.error ? <ErrorBox error={inv.error} retry={inv.reload} /> : inv.loading ? <Loading /> : !inv.data!.length ? (
-        <div className="empty"><h3>No pending invitations</h3><p>When someone invites you to a project it will show up here. You can also open an invitation link you were sent, or accept a token from the command line.</p><CodeLine>secretvariable accept INVITE_TOKEN</CodeLine></div>
+        <div className="empty"><h3>No pending invitations</h3><p>When someone invites you to a project it will show up here. You can also open an invitation link you were sent, or accept a token from the command line.</p><CodeLine>sv accept INVITE_TOKEN</CodeLine></div>
       ) : (
         <table className="table" aria-label="Invitations">
           <thead><tr><th className="wide">Project</th><th>Invited by</th><th>Role</th><th>Expires</th><th /></tr></thead>
@@ -116,6 +117,16 @@ export function OrgPage() {
   );
 }
 
+function ThemeChoice() {
+  const { pref, setPref } = useTheme();
+  const options: { value: ThemePref; label: string }[] = [{ value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }];
+  return (
+    <div className="segmented" role="group" aria-label="Theme">
+      {options.map((o) => <button key={o.value} aria-pressed={pref === o.value} onClick={() => setPref(o.value)}>{o.label}</button>)}
+    </div>
+  );
+}
+
 export function AccountPage() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
@@ -137,7 +148,11 @@ export function AccountPage() {
       <div className="title-row"><div><h1>Account</h1><p className="sub">{user?.name} · {user?.email}</p></div><div className="actions"><button className="btn" onClick={() => logout().then(() => nav("/login"))}>Sign out</button></div></div>
       <div>
         <section className="setting">
-          <div className="about"><h2>Personal access tokens</h2><p>Used by the command-line tool. Signing in with <span className="mono">secretvariable login</span> creates one for you.</p></div>
+          <div className="about"><h2>Appearance</h2><p>Light, dark, or follow your device. This is remembered on this browser.</p></div>
+          <div className="body"><ThemeChoice /></div>
+        </section>
+        <section className="setting">
+          <div className="about"><h2>Personal access tokens</h2><p>Used by the command-line tool. Signing in with <span className="mono">sv login</span> creates one for you.</p></div>
           <div className="body">
             {tokens.error ? <ErrorBox error={tokens.error} retry={tokens.reload} /> : tokens.loading ? <Loading /> : personal.length === 0 ? <p className="muted">No personal tokens.</p> : (
               <div className="list-rows">
@@ -156,8 +171,8 @@ export function AccountPage() {
           <div className="about"><h2>Command-line tool</h2><p>Install it, sign in, and link your project folder.</p></div>
           <div className="body">
             <CodeLine>npm install -g @secretvariable/cli</CodeLine>
-            <CodeLine>{`secretvariable login --server ${location.origin}`}</CodeLine>
-            <CodeLine>secretvariable init</CodeLine>
+            <CodeLine>{`sv login --server ${location.origin}`}</CodeLine>
+            <CodeLine>sv init</CodeLine>
           </div>
         </section>
       </div>

@@ -21,8 +21,20 @@ const ok = (m) => console.log(`ok ${++step} - ${m}`);
   const reg = await fetch(`${base}/api/v1/auth/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Guest Gray", email: guestEmail, password: pw }) });
   assert.equal(reg.status, 201);
 
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
   const page = await ctx.newPage(); watch(page);
+
+  // --- an error message never moves the layout (reserved slot)
+  await page.goto(`${base}/login`);
+  await page.fill("#email", "nobody@e2e.test"); await page.fill("#password", "not-a-real-password");
+  const btnBefore = await page.locator("button.primary.block").boundingBox();
+  const linkBefore = await page.locator(".switch-mode").boundingBox();
+  await page.click("button.primary.block");
+  await page.waitForSelector(".form-error:not(:empty)");
+  const btnAfter = await page.locator("button.primary.block").boundingBox();
+  const linkAfter = await page.locator(".switch-mode").boundingBox();
+  assert.equal(btnAfter.y, btnBefore.y); assert.equal(btnAfter.height, btnBefore.height); assert.equal(linkAfter.y, linkBefore.y);
+  ok("a form error appears without moving the button or links");
 
   // --- sign up
   await page.goto(`${base}/register`);
@@ -164,6 +176,20 @@ const ok = (m) => console.log(`ok ${++step} - ${m}`);
   await page.waitForSelector("h1:has-text('Projects')");
   assert.equal(await page.locator("a[href^=\"/p/\"]").count(), 0); // gone from the list (it still appears in activity)
   ok("deletes the project after typing its name");
+
+  // --- light mode switch: toggles, persists across reloads, and is also in Account > Appearance
+  const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
+  assert.equal(await theme(), "dark");
+  await page.click("button[aria-label='Switch to light mode']");
+  assert.equal(await theme(), "light");
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(246, 246, 247)"); // fades over 150ms
+  await page.reload(); await page.waitForSelector("h1:has-text('Projects')");
+  assert.equal(await theme(), "light");
+  await page.click("a[aria-label='Account']");
+  await page.click("button[aria-pressed]:has-text('Dark')");
+  assert.equal(await theme(), "dark");
+  assert.equal(await page.evaluate(() => localStorage.getItem("sv.theme")), "dark");
+  ok("light mode switch works, persists and syncs with Account > Appearance");
 
   // --- sign out
   await page.click("button[aria-label='Sign out']");
