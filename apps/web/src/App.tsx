@@ -9,17 +9,17 @@ import { ProjectLayout, ProjectIndex } from "./pages/project";
 import { HistoryPage, VariablesPage } from "./pages/variables";
 import { AuditPage, MembersPage, SettingsPage, TokensPage } from "./pages/team";
 import { ProjectsPage } from "./pages/projects";
-import { BrandMark, Icon, useAsync } from "./ui";
+import { BrandMark, Icon, ThemeToggle, useAsync } from "./ui";
 
 interface OrgState { orgs: Org[]; org: Org | null; setOrgId: (id: string) => void; reload: () => void; invites: number }
 const OrgCtx = createContext<OrgState>(null as never);
 export const useOrg = () => useContext(OrgCtx);
 
-function RailLink({ to, icon, label, count, end }: { to: string; icon: string; label: string; count?: number; end?: boolean }) {
+function RailLink({ to, icon, label, short, count, end }: { to: string; icon: string; label: string; short?: string; count?: number; end?: boolean }) {
   return (
     <NavLink to={to} end={end} className="rail-item" data-tip={label} aria-label={label}>
       <Icon name={icon} />
-      <span className="label">{label}</span>
+      <span className="label">{short ?? label}</span>
       {count ? <span className="count" aria-label={`${count} pending`}>{count}</span> : null}
     </NavLink>
   );
@@ -47,10 +47,11 @@ function Shell() {
         <nav className="rail" aria-label="Main">
           <NavLink to="/" className="brand" aria-label="SecretVariable home"><BrandMark /></NavLink>
           <RailLink to="/" icon="grid" label="Projects" end />
-          <RailLink to="/org" icon="users" label="Organisation" />
-          <RailLink to="/invitations" icon="mail" label="Invitations" count={inv.data ?? 0} />
+          <RailLink to="/org" icon="users" label="Organisation" short="Org" />
+          <RailLink to="/invitations" icon="mail" label="Invites" count={inv.data ?? 0} />
           <div className="rail-sep" />
           <div className="rail-spacer" />
+          <ThemeToggle variant="rail" />
           <RailLink to="/account" icon="user" label="Account" />
           <button className="rail-item" data-tip="Sign out" aria-label="Sign out" onClick={() => logout().then(() => nav("/login"))}><Icon name="logout" /><span className="label">Sign out</span></button>
         </nav>

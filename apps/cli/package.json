@@ -22,7 +22,8 @@
     "vitest": "^5.1.0"
   },
   "bin": {
-    "secretvariable": "dist/index.js"
+    "secretvariable": "dist/index.js",
+    "sv": "dist/index.js"
   },
   "files": [
     "dist"

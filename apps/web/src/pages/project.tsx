@@ -28,7 +28,7 @@ export function ProjectLayout() {
       <div className="page">
         <div>
           <div className="crumbs"><Link to="/">Projects</Link><span>/</span><span>{project.orgName}</span></div>
-          <div className="title-row" style={{ marginTop: 10 }}>
+          <div className="title-row">
             <div>
               <h1>{project.name}</h1>
               <div className="sub">{sub}</div>

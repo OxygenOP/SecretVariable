@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { AuditEntry, Project } from "@secretvariable/shared";
 import { get, post } from "../api";
 import { useOrg } from "../App";
-import { CodeLine, ErrorBox, Icon, Loading, Modal, Who, absTime, relTime, useAsync, usePageTitle, useToast } from "../ui";
+import { CodeLine, ErrorBox, FormError, Icon, Loading, Modal, Who, absTime, relTime, useAsync, usePageTitle, useToast } from "../ui";
 import { actionLabel } from "./labels";
 
 function NewProject({ orgId, onClose }: { orgId: string; onClose: () => void }) {
@@ -25,7 +25,7 @@ function NewProject({ orgId, onClose }: { orgId: string; onClose: () => void }) 
       <form className="form" onSubmit={submit}>
         <div className="field"><label htmlFor="pn">Project name</label><input id="pn" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="payments-api" autoFocus required /></div>
         <div className="field"><label htmlFor="pe">Environments</label><input id="pe" className="input" value={envs} onChange={(e) => setEnvs(e.target.value)} /><span className="hint">Comma separated. You can add or rename them later.</span></div>
-        {error && <div className="error-text" role="alert">{error}</div>}
+        <FormError message={error} />
         <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !name.trim()}>Create project</button></div>
       </form>
     </Modal>
@@ -70,11 +70,11 @@ export function ProjectsPage() {
         <section aria-label="Getting started">
           <div className="section-head"><h2>Get started</h2></div>
           <div className="strip">
-            <button className="btn ghost" style={{ all: "unset", cursor: "pointer", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 6, position: "relative", borderLeft: 0 }} onClick={() => setCreating(true)}>
+            <button className="cell" onClick={() => setCreating(true)}>
               <span className="step">1</span><span className="t">Create a project</span><span className="d">One project per app or service.</span><Icon name="arrow" className="ico arrow" />
             </button>
             <div><span className="step">2</span><span className="t">Install the CLI</span><span className="d mono">npm i -g @secretvariable/cli</span></div>
-            <div><span className="step">3</span><span className="t">Push your .env</span><span className="d mono">secretvariable push</span></div>
+            <div><span className="step">3</span><span className="t">Push your .env</span><span className="d mono">sv push</span></div>
             <div><span className="step">4</span><span className="t">Invite your team</span><span className="d">Choose which environments they see.</span></div>
           </div>
         </section>
@@ -112,7 +112,7 @@ export function ProjectsPage() {
         </section>
       )}
 
-      {!noProjects && !projects.loading && <CodeLine>secretvariable init</CodeLine>}
+      {!noProjects && !projects.loading && <CodeLine>sv init</CodeLine>}
       {creating && <NewProject orgId={org.id} onClose={() => setCreating(false)} />}
     </div>
   );

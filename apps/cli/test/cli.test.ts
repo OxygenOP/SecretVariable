@@ -64,6 +64,20 @@ describe("cli", () => {
     expect(r.err).toContain("secretvariable login");
   });
 
+  it("works under the short name `sv` and shows it in hints", async () => {
+    const fresh = new Machine();
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: IO = { prog: "sv", cwd: fresh.cwd, isTTY: false, env: { PATH: process.env.PATH, SECRETVARIABLE_CONFIG_DIR: fresh.home } as NodeJS.ProcessEnv, out: (s) => out.push(s), err: (s) => err.push(s), ask: async () => null };
+    expect(await main(["projects"], io)).toBe(1);
+    expect(err.join("\n")).toContain("Run: sv login");
+    expect(err.join("\n")).not.toContain("secretvariable login");
+    expect(await main(["help"], io)).toBe(0);
+    expect(out.join("\n")).toContain("sv 0.1.0");
+    expect(out.join("\n")).toContain("pull  [--env E]");
+    expect(out.join("\n")).not.toMatch(/secretvariable (pull|push|login)/);
+  });
+
   it("logs in and stores credentials privately", async () => {
     email = await signup("Cora");
     const bad = await m.sv("login", "--server", url, "--email", email, "--password", "wrong password!");
