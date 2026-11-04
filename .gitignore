@@ -23,3 +23,5 @@ skills-lock.json
 .taste-skill/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
+master.key
+*.key
