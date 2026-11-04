@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SecretVariable</title>
+    <style>
+      :root { --ground:#171719; --surface:#131217; --control:#3a3a3e; --muted:#8a8c92; --negative:#e5566f; }
+      * { box-sizing: border-box; }
+      body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--ground); color:#fff; font:13px/1.5 "Public Sans", Inter, system-ui, sans-serif; }
+      main { width:min(420px, 92vw); display:flex; flex-direction:column; gap:16px; }
+      h1 { font-size:22px; margin:0; font-weight:600; }
+      p { margin:0; color:var(--muted); }
+      label { font-weight:500; }
+      input { width:100%; height:34px; padding:0 10px; margin-top:8px; background:var(--surface); color:#fff; border:1px solid var(--control); border-radius:6px; font:inherit; }
+      input:focus { outline:none; border-color:#4a8ad6; }
+      button { height:34px; border-radius:999px; border:1px solid #fff; background:#fff; color:var(--ground); font:inherit; font-weight:500; cursor:pointer; }
+      button:disabled { opacity:.45; cursor:not-allowed; }
+      .err { color:var(--negative); min-height:1.5em; margin:8px 0 12px; }
+      .mark { width:30px; height:30px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M12 6c-2.6 0-3.6 1.2-3.6 3.6v2.8c0 1.3-.7 2.2-2.2 3.6 1.5 1.4 2.2 2.3 2.2 3.6v2.8c0 2.4 1 3.6 3.6 3.6M20 6c2.6 0 3.6 1.2 3.6 3.6v2.8c0 1.3.7 2.2 2.2 3.6-1.5 1.4-2.2 2.3-2.2 3.6v2.8c0 2.4-1 3.6-3.6 3.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="16" r="2.4" fill="#fff"/></svg>
+      <h1>Connect to your server</h1>
+      <p>Enter the address of your SecretVariable server. The desktop app shows that server's web app; nothing is stored on any other server.</p>
+      <form id="f">
+        <label for="url">Server URL</label>
+        <input id="url" type="url" inputmode="url" placeholder="https://secrets.example.com" autocomplete="url" required autofocus />
+        <div class="err" id="err" role="alert"></div>
+        <button id="go">Connect</button>
+      </form>
+    </main>
+    <script>
+      const KEY = "sv.desktop.server";
+      const input = document.getElementById("url");
+      const err = document.getElementById("err");
+      const go = document.getElementById("go");
+      const saved = (() => { try { return localStorage.getItem(KEY); } catch { return null; } })();
+      const params = new URLSearchParams(location.search);
+      if (saved) input.value = saved;
+      async function connect(raw) {
+        let u;
+        try { u = new URL(raw.trim()); } catch { throw new Error("That is not a valid URL."); }
+        if (u.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(u.hostname)) throw new Error("Use https:// (plain http is only allowed for localhost).");
+        const base = u.origin;
+        const r = await fetch(base + "/api/health").catch(() => null);
+        if (!r || !r.ok) throw new Error("Cannot reach a SecretVariable server at " + base);
+        try { localStorage.setItem(KEY, base); } catch {}
+        location.href = base;
+      }
+      document.getElementById("f").addEventListener("submit", async (e) => {
+        e.preventDefault(); err.textContent = ""; go.disabled = true;
+        try { await connect(input.value); } catch (x) { err.textContent = x.message; go.disabled = false; }
+      });
+      // reconnect automatically unless the user asked to change server (?change=1)
+      if (saved && !params.has("change")) connect(saved).catch((x) => { err.textContent = x.message; });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "@secretvariable/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SecretVariable desktop app: a Tauri shell around your self-hosted server's web app",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon app-icon.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

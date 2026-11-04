@@ -21,3 +21,5 @@ dist/
 .claude/
 skills-lock.json
 .taste-skill/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
