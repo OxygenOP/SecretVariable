@@ -115,4 +115,25 @@ CREATE INDEX audit_project_idx ON audit_log(project_id, id DESC);
 CREATE INDEX audit_org_idx ON audit_log(org_id, id DESC);
 `,
   },
+  {
+    name: "002_invites",
+    sql: `
+CREATE TABLE invites (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  email text NOT NULL,
+  role text NOT NULL CHECK (role IN ('admin','editor','viewer')),
+  scope text NOT NULL DEFAULT 'all' CHECK (scope IN ('all','selected')),
+  grants jsonb NOT NULL DEFAULT '[]'::jsonb,
+  token_hash text NOT NULL UNIQUE,
+  invited_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  expires_at timestamptz NOT NULL,
+  accepted_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX invites_project_idx ON invites(project_id);
+CREATE INDEX invites_email_idx ON invites(email);
+`,
+  },
 ];
