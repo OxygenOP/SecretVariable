@@ -29,6 +29,7 @@ const LABELS: Record<string, string> = {
   "2fa.email.off": "Turned off email codes",
   "2fa.recovery.regenerate": "Generated new recovery codes",
   "invite.extend": "Extended an invitation",
+  "invite.email": "Emailed an invitation",
   "token.create": "Created a token",
   "token.revoke": "Revoked a token",
 };

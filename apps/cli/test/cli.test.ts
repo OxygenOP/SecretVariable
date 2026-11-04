@@ -16,7 +16,7 @@ beforeAll(async () => {
   const pool = createPool(DB);
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await migrate(pool);
-  const app = await buildApp({ databaseUrl: DB, masterKey: generateKey(), host: "127.0.0.1", port: 0, webDir: null, allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, smtpUrl: null, mailFrom: "test@example.com" }, pool);
+  const app = await buildApp({ databaseUrl: DB, masterKey: generateKey(), host: "127.0.0.1", port: 0, webDir: null, allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, smtpUrl: null, mailFrom: "test@example.com", publicUrl: null }, pool);
   await app.listen({ host: "127.0.0.1", port: 0 });
   const addr = app.server.address() as { port: number };
   url = `http://127.0.0.1:${addr.port}`;
@@ -157,6 +157,13 @@ describe("cli", () => {
     expect((await m.sv("pull", "--force", "--file", "preview.env")).out).toContain("3 variables from preview");
     expect((await m.sv("env", "use", "missing")).code).toBe(1);
     await m.sv("env", "use", "development");
+  });
+
+  it("explains that --send-email needs SMTP on the server, and creates nothing", async () => {
+    const who = await signup("Mailless");
+    const r = await m.sv("invite", who, "--role", "viewer", "--send-email");
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("no email configured");
   });
 
   it("invites a teammate limited to one environment", async () => {

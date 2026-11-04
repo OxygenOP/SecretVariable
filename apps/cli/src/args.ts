@@ -9,7 +9,7 @@ const SHORT: Record<string, string> = { m: "message", e: "env", o: "out", f: "fi
 
 export function parseArgs(argv: string[], booleans: string[] = []): Parsed {
   const p: Parsed = { positionals: [], flags: {}, rest: [] };
-  const bools = new Set([...booleans, "yes", "force", "help", "reveal", "create", "json"]);
+  const bools = new Set([...booleans, "yes", "force", "help", "reveal", "create", "json", "send-email"]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "--") { p.rest = argv.slice(i + 1); break; }
