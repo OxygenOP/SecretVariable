@@ -5,8 +5,8 @@
   "description": "SecretVariable desktop app: a Tauri shell around your self-hosted server's web app",
   "license": "MIT",
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
     "icons": "tauri icon app-icon.png"
   },
   "devDependencies": {
