@@ -7,6 +7,8 @@ All notable changes are recorded here. The project follows [Semantic Versioning]
 First public version.
 
 ### Added
+- Two-step verification: authenticator app (TOTP) with QR setup, one-time email codes as a backup (optional SMTP: `SV_SMTP_URL`, `SV_MAIL_FROM`), 10 single-use recovery codes, attempt limits, replay protection, audit events; supported in the web app and `svar login` (`--code`, `--method`).
+- Invitation expiry: choose 1-30 days when inviting, see and extend expired invitations, clear "expired" message for the invitee; `svar invite --expires`.
 - Light theme with a switch (rail, sign-in page and Account > Appearance). Follows the system setting by default and is applied before first paint.
 - Short command `svar` (same program as `secretvariable`; chosen because `sv` is already the Svelte CLI and a Linux runit command).
 - Envelope encryption (AES-256-GCM) with a master key and per-project data keys.

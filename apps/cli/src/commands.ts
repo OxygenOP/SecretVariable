@@ -62,6 +62,44 @@ function gitignoreCovers(dir: string, name: string): boolean | null {
 }
 
 // ---------------------------------------------------------------- auth
+/** Two-step verification: authenticator code, recovery code, or an emailed code. Returns the session token. */
+async function secondStep(base: Api, io: IO, p: Parsed, first: { challenge: string; methods: string[]; emailHint?: string | null }): Promise<string> {
+  let method = str(p.flags.method) ?? "totp";
+  let code = str(p.flags.code);
+  if (!first.methods.includes(method)) throw new CliError(`The method "${method}" is not available for this account.`, `Available: ${first.methods.join(", ")}`);
+  const sendEmail = async () => {
+    const r = await base.post("/auth/2fa/email", { challenge: first.challenge });
+    io.out(`A sign-in code was sent to ${r.to}. It expires in ${r.expiresInMinutes} minutes.`);
+  };
+  const interactive = io.isTTY;
+  if (!code && !interactive && method !== "email") {
+    throw new CliError("Two-step verification is on for this account.", "Pass --code <authenticator code>, or --method recovery --code <recovery code>.");
+  }
+  if (!code && !interactive) throw new CliError("Email codes need an interactive terminal.", "Use --code with an authenticator or recovery code instead.");
+  if (method === "email") await sendEmail();
+  const labels: Record<string, string> = { totp: "Authenticator code: ", email: "Code from your email: ", recovery: "Recovery code: " };
+  if (!code) io.out(`Two-step verification is on.${first.methods.includes("email") ? ' Type "email" to get a code by email,' : " Type"} "recovery" to use a recovery code.`);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (!code) {
+      const answer = (await io.ask(labels[method]!, { secret: false }))?.trim();
+      if (!answer) throw new CliError("No code entered.");
+      if (answer === "email" && first.methods.includes("email")) { method = "email"; await sendEmail(); continue; }
+      if (answer === "recovery") { method = "recovery"; continue; }
+      code = answer;
+    }
+    try {
+      const r = await base.post("/auth/2fa/verify", { challenge: first.challenge, method, code });
+      if (typeof r.recoveryCodesRemaining === "number") io.out(`Recovery code used. ${r.recoveryCodesRemaining} left.`);
+      return r.token as string;
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status !== 401 || !interactive || e.apiCode !== "invalid_code" || /Too many/.test(e.message)) throw e;
+      io.err(e.message);
+      code = undefined;
+    }
+  }
+  throw new CliError("Too many attempts.");
+}
+
 export const login: Cmd = async (p, io) => {
   const saved = readCredentials(io);
   const server = (str(p.flags.server) ?? (await io.ask(`Server URL [${saved.server ?? "http://localhost:8080"}]: `)) ?? "").trim() || saved.server || "http://localhost:8080";
@@ -70,9 +108,10 @@ export const login: Cmd = async (p, io) => {
   if (!token) {
     const email = await ask(io, "Email: ", str(p.flags.email) ?? io.env.SECRETVARIABLE_EMAIL);
     const password = await ask(io, "Password: ", str(p.flags.password) ?? io.env.SECRETVARIABLE_PASSWORD, true);
-    const session = await base.post("/auth/login", { email, password, name: `cli ${hostname()}`.slice(0, 60) });
+    const first = await base.post("/auth/login", { email, password, name: `cli ${hostname()}`.slice(0, 60) });
+    const sessionToken: string = first.mfaRequired ? await secondStep(base, io, p, first) : first.token;
     // exchange the short-lived session for a long-lived personal token
-    const authed = new Api(server, session.token);
+    const authed = new Api(server, sessionToken);
     const t = await authed.post("/tokens", { name: `cli on ${hostname()}`.slice(0, 80), kind: "personal", access: "write", expiresInDays: 90 });
     await authed.post("/auth/logout").catch(() => {});
     token = t.token as string;
@@ -294,7 +333,7 @@ export const rollback: Cmd = async (p, io) => {
 // ---------------------------------------------------------------- team
 export const invite: Cmd = async (p, io) => {
   const email = p.positionals[0];
-  if (!email) throw new CliError("Usage: secretvariable invite <email> [--role viewer|editor|admin] [--envs dev,staging --access read|write]");
+  if (!email) throw new CliError("Usage: secretvariable invite <email> [--role viewer|editor|admin] [--envs dev,staging --access read|write] [--expires 1-30 days]");
   const link = requireLink(io).link;
   const a = api(io);
   const role = str(p.flags.role) ?? "viewer";
@@ -309,6 +348,9 @@ export const invite: Cmd = async (p, io) => {
     });
     body = { ...body, scope: "selected", grants };
   }
+  const days = str(p.flags.expires) ? Number(str(p.flags.expires)) : undefined;
+  if (days !== undefined && (!Number.isInteger(days) || days < 1 || days > 30)) throw new CliError("--expires must be a whole number of days from 1 to 30.");
+  if (days) body = { ...body, expiresInDays: days };
   const r = await a.post(`/projects/${link.projectId}/invites`, body);
   const server = requireCredentials(io).server;
   io.out(`Invited ${email} as ${role}${names?.length ? ` (only: ${names.join(", ")})` : ""}.\nShare this link (expires ${r.invite.expiresAt.slice(0, 10)}):\n  ${server}/invite/${r.token}\nOr they can run: secretvariable accept ${r.token}`);

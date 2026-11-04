@@ -4,6 +4,7 @@ import type { AppCtx } from "../app-context.js";
 import { audit } from "../audit.js";
 import { authenticate, createToken, hashPassword, verifyPassword } from "../auth.js";
 import { tx } from "../db.js";
+import { generateToken, hashToken, maskEmail } from "@secretvariable/crypto";
 import { conflict, forbidden, unauthorized } from "../errors.js";
 import { parse, slugify } from "../util.js";
 
@@ -11,7 +12,7 @@ const email = z.string().trim().toLowerCase().email().max(254);
 const password = z.string().min(10, "must be at least 10 characters").max(200);
 
 export function authRoutes(app: FastifyInstance, ctx: AppCtx): void {
-  const { pool, config } = ctx;
+  const { pool, config, mailer } = ctx;
   const limit = { config: { rateLimit: { max: config.rateLimitMax, timeWindow: "1 minute" } } };
   const sessionExpiry = () => new Date(Date.now() + config.sessionTtlDays * 86_400_000);
 
@@ -42,10 +43,18 @@ export function authRoutes(app: FastifyInstance, ctx: AppCtx): void {
 
   app.post("/api/v1/auth/login", limit, async (req) => {
     const body = parse(z.object({ email, password: z.string().max(200), name: z.string().max(60).optional() }), req.body);
-    const r = await pool.query("SELECT id, email, name, password_hash FROM users WHERE email = $1", [body.email]);
+    const r = await pool.query("SELECT id, email, name, password_hash, totp_enabled_at, email_backup FROM users WHERE email = $1", [body.email]);
     const u = r.rows[0];
     const ok = u ? await verifyPassword(u.password_hash, body.password) : (await hashPassword("x"), false);
     if (!u || !ok) throw unauthorized("Wrong email or password");
+    if (u.totp_enabled_at) {
+      // password is right but a second step is required: no session yet, only a short-lived challenge
+      const challenge = generateToken("svm");
+      await pool.query("INSERT INTO mfa_challenges(user_id, token_hash, client_name, expires_at) VALUES ($1,$2,$3, now() + interval '5 minutes')", [u.id, hashToken(challenge), body.name ?? "login"]);
+      await audit(pool, { actorId: u.id, action: "2fa.challenge", ip: req.ip });
+      const methods = ["totp", "recovery", ...(mailer.enabled && u.email_backup ? ["email"] : [])];
+      return { mfaRequired: true, challenge, methods, emailHint: methods.includes("email") ? maskEmail(u.email) : null };
+    }
     const t = await createToken(pool, { userId: u.id, kind: "session", name: body.name ?? "login", expiresAt: sessionExpiry() });
     await audit(pool, { actorId: u.id, action: "user.login", ip: req.ip });
     return { token: t.token, user: { id: u.id, email: u.email, name: u.name } };

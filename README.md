@@ -19,7 +19,8 @@ Teams keep `.env` files in chat threads, password managers and the heads of whoe
 - **Versions, diffs, rollback.** Saving creates `v1, v2, v3 ...`. Compare any two versions (key names by default, values only on request) and roll back by saving an old version as a new one. Nothing is rewritten.
 - **Encrypted at rest.** AES-256-GCM envelope encryption: a master key you control wraps a data key per project, and every value is sealed with its own nonce and bound to its key and version.
 - **Access control.** Admin, editor and viewer roles, plus per-environment access: give a contractor read access to `staging` only. Hidden environments simply do not exist for them.
-- **Invitations.** Single-use, email-bound, expiring links. No mail server required.
+- **Invitations.** Single-use, email-bound links with an expiry you choose (1-30 days) that admins can extend. No mail server required.
+- **Two-step verification.** Authenticator app (QR setup), email codes as a backup, and single-use recovery codes. Email needs an SMTP server; everything else works without.
 - **Web app, CLI and desktop shell.** View and edit variables in the browser (masked until you reveal them; light and dark themes), `pull`/`push`/`run` from the terminal, or use the Tauri desktop wrapper.
 - **CI-friendly tokens.** Project- and environment-scoped, read-only or read/write service tokens that expire and can be revoked.
 - **Audit log.** Who read, changed or shared what, and when. Secret values are never written to it.
@@ -96,7 +97,7 @@ The server encrypts values with keys derived from a master key you provide, so *
 
 ## Status
 
-Early software (`0.x`). The API, CLI and web app are covered by automated tests (server and CLI integration tests against PostgreSQL, a browser end-to-end test). Not yet implemented: two-factor authentication, master-key rotation tooling, email delivery, SSO, GitHub/Vercel secret sync. See the [roadmap](guide/roadmap.md).
+Early software (`0.x`). The API, CLI and web app are covered by automated tests (server and CLI integration tests against PostgreSQL, a browser end-to-end test). Not yet implemented: master-key rotation tooling, password reset, SSO, GitHub/Vercel secret sync. See the [roadmap](guide/roadmap.md).
 
 ## Contributing
 

@@ -23,7 +23,7 @@ node apps/cli/dist/index.js help     # or: pnpm --filter @secretvariable/cli lin
 svar login --server https://secrets.example.com
 ```
 
-You are asked for your email and password (they can also be passed with `--email` and `--password`). The password is exchanged for a 90-day personal token and is never stored. Credentials live in `~/.config/secretvariable/config.json` (mode `0600`). `svar login --token <token>` signs in with an existing token. `svar logout` forgets the local credentials; revoke the token in the web app (Account) or with `svar token revoke <id>`.
+You are asked for your email and password (they can also be passed with `--email` and `--password`). If your account has two-step verification, you are then asked for a code: type the authenticator code, or `email` to get a code by email, or `recovery` to use a recovery code. Without a terminal pass it as `--code 123456` (and `--method recovery --code abcde-fghij` for a recovery code); emailed codes need a terminal. The password is exchanged for a 90-day personal token and is never stored. Credentials live in `~/.config/secretvariable/config.json` (mode `0600`). `svar login --token <token>` signs in with an existing token. `svar logout` forgets the local credentials; revoke the token in the web app (Account) or with `svar token revoke <id>`.
 
 ## Link a folder to a project
 
@@ -65,7 +65,7 @@ svar env create preview --from production@4      # copy from v4
 ## Team and tokens
 
 ```bash
-svar invite dana@example.com --role viewer --envs staging
+svar invite dana@example.com --role viewer --envs staging --expires 3   # link valid for 3 days (1-30, default 7)
 svar accept <invite-token>
 svar members
 svar token create --name ci --env production --access read --expires 90

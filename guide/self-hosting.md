@@ -47,6 +47,13 @@ node apps/server/dist/index.js
 | `SV_SESSION_TTL_DAYS` | `30` | Web sign-in lifetime |
 | `SV_AUTH_RATE_LIMIT` | `20` | Login/register attempts per minute per IP |
 | `SV_LOG` | `true` | Request logging (the Authorization header is redacted) |
+| `SV_SMTP_URL` | unset | SMTP server for sign-in emails, e.g. `smtps://user:pass@smtp.example.com:465` or `smtp://user:pass@host:587`. Unset = no email, and email codes are hidden |
+| `SV_MAIL_FROM` | `SecretVariable <no-reply@localhost>` | The From address for emails |
+
+## Email
+Email is used for one thing: one-time sign-in codes as a backup for two-step verification. It is optional. Set `SV_SMTP_URL` (and `SV_MAIL_FROM`) to enable it; use your provider's SMTP credentials (Postmark, SES, Mailgun, your own relay...). Make sure the From domain has SPF/DKIM so codes are not marked as spam.
+
+`SV_SMTP_URL=console` prints emails, including the codes, to the server log. It is only for development: never use it in production.
 
 ## HTTPS with a reverse proxy
 
@@ -100,4 +107,4 @@ Back up before upgrading. Check the [changelog](../CHANGELOG.md) for notes.
 - Health check: `GET /api/health`.
 - Logs go to stdout. They never contain secret values.
 - Run the app as a non-root user (the image does) and keep PostgreSQL off the public internet.
-- Invitations are links you share yourself; the server does not send email.
+- Invitations are links you share yourself; the server does not email them. Each has an expiry (1-30 days, chosen when inviting) that admins can extend later.

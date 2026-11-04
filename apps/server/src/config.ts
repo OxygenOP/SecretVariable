@@ -10,6 +10,9 @@ export interface Config {
   sessionTtlDays: number;
   rateLimitMax: number;
   logger: boolean;
+  /** smtp://user:pass@host:587, smtps://..., or "console" (prints emails to the log; development only). Unset disables email. */
+  smtpUrl: string | null;
+  mailFrom: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -28,5 +31,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionTtlDays: Number(env.SV_SESSION_TTL_DAYS ?? 30),
     rateLimitMax: Number(env.SV_AUTH_RATE_LIMIT ?? 20),
     logger: (env.SV_LOG ?? "true") !== "false",
+    smtpUrl: env.SV_SMTP_URL || null,
+    mailFrom: env.SV_MAIL_FROM ?? "SecretVariable <no-reply@localhost>",
   };
 }

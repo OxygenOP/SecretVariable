@@ -27,6 +27,8 @@ pnpm typecheck
   pnpm --filter @secretvariable/web build
   SV_WEB_DIR=$PWD/apps/web/dist node apps/server/dist/index.js &
   SV_E2E_URL=http://localhost:8080 pnpm --filter @secretvariable/web e2e
+  # optional: also test emailed codes by starting the server with SV_SMTP_URL=console SV_LOG=true,
+  # redirecting its output to a file, and passing SV_E2E_MAIL_LOG=<that file>
   ```
 
 ## Layout
