@@ -19,7 +19,7 @@ async function ask(q: string, opts?: { secret?: boolean }): Promise<string | nul
 const invokedAs = basename(process.argv[1] ?? "").replace(/\.[cm]?js$/, "");
 
 const io: IO = {
-  prog: invokedAs === "secvar" ? "secvar" : "secretvariable",
+  prog: invokedAs === "svar" ? "svar" : "secretvariable",
   cwd: process.cwd(),
   env: process.env,
   out: (s) => console.log(s),

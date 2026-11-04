@@ -35,7 +35,7 @@ Team
   members
   token create [--name N --env E --access read|write --expires DAYS] | token list | token revoke <id>
 
-Short name: "secvar" is the same command (secvar pull, secvar push, secvar run -- ...).
+Short name: "svar" is the same command (svar pull, svar push, svar run -- ...).
 
 Environment variables: SECRETVARIABLE_URL, SECRETVARIABLE_TOKEN (for CI)
 `;
@@ -47,11 +47,11 @@ const commands: Record<string, (p: ReturnType<typeof parseArgs>, io: IO) => Prom
 };
 
 /** Returns the process exit code. */
-// Rewrites "secretvariable <word>" command references to the short name when started as `secvar`.
-const short = (s: string) => s.replace(/(?<![@.\w/-])secretvariable (?=[a-z0-9<`-])/g, "secvar ");
+// Rewrites "secretvariable <word>" command references to the short name when started as `svar`.
+const short = (s: string) => s.replace(/(?<![@.\w/-])secretvariable (?=[a-z0-9<`-])/g, "svar ");
 
 export async function main(argv: string[], real: IO): Promise<number> {
-  const io: IO = real.prog === "secvar" ? { ...real, out: (s) => real.out(short(s)), err: (s) => real.err(short(s)) } : real;
+  const io: IO = real.prog === "svar" ? { ...real, out: (s) => real.out(short(s)), err: (s) => real.err(short(s)) } : real;
   const [name, ...rest] = argv;
   if (!name || name === "help" || name === "--help" || name === "-h") { io.out(HELP); return name ? 0 : 1; }
   if (name === "--version" || name === "-v" || name === "version") { io.out(VERSION); return 0; }
