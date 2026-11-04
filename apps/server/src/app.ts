@@ -8,6 +8,8 @@ import { authRoutes } from "./routes/auth.js";
 import { environmentRoutes } from "./routes/environments.js";
 import { orgRoutes } from "./routes/orgs.js";
 import { projectRoutes } from "./routes/projects.js";
+import { teamRoutes } from "./routes/teams.js";
+import { tokenRoutes } from "./routes/tokens.js";
 
 export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyInstance> {
   const app = Fastify({ logger: config.logger ? { redact: ["req.headers.authorization"] } : false, trustProxy: true, bodyLimit: 2 * 1024 * 1024 });
@@ -28,6 +30,8 @@ export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyIn
   orgRoutes(app, ctx);
   projectRoutes(app, ctx);
   environmentRoutes(app, ctx);
+  teamRoutes(app, ctx);
+  tokenRoutes(app, ctx);
 
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith("/api/")) return reply.code(404).send({ error: { code: "not_found", message: "Not found" } });

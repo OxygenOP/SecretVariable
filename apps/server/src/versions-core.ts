@@ -26,10 +26,13 @@ export interface NewVersion {
  * If the variables equal the current head, nothing is written and `created` is false.
  */
 export async function appendVersion(c: Q, n: NewVersion): Promise<{ id: string; number: number; created: boolean }> {
+  // Lock the environment row first, then read the head in a fresh statement so a
+  // concurrent writer's new head is visible (READ COMMITTED re-reads only the locked row).
+  await c.query("SELECT 1 FROM environments WHERE id = $1 FOR UPDATE", [n.environmentId]);
   const env = await c.query(
-    `SELECT e.id, e.head_version_id, v.number AS head_number
+    `SELECT e.head_version_id, v.number AS head_number
        FROM environments e LEFT JOIN versions v ON v.id = e.head_version_id
-      WHERE e.id = $1 FOR UPDATE OF e`, [n.environmentId]);
+      WHERE e.id = $1`, [n.environmentId]);
   const head = env.rows[0];
   if (head.head_version_id) {
     const current = await readVersionVars(c, n.dek, head.head_version_id);
