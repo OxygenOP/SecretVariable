@@ -1,6 +1,6 @@
 # @secretvariable/cli
 
-The command-line tool for [SecretVariable](https://github.com/OxygenOP/SecretVariable), an open-source, self-hosted home for your team's `.env` files. Pull, push and run versioned environment variables from your terminal.
+The command-line tool for [SecretVariable](https://www.secretvariable.com), an open-source, self-hosted home for your team's `.env` files ([source on GitHub](https://github.com/OxygenOP/SecretVariable)). Pull, push and run versioned environment variables from your terminal.
 
 ```bash
 npm install -g @secretvariable/cli     # Node.js 20+, no other dependencies
@@ -29,7 +29,7 @@ Invite teammates with `svar invite dana@example.com --role viewer --envs staging
 
 ## Requirements
 
-You need a SecretVariable server to talk to. It is a single Docker image plus PostgreSQL: see the [self-hosting guide](https://github.com/OxygenOP/SecretVariable/blob/main/guide/self-hosting.md). The full command reference is in the [CLI guide](https://github.com/OxygenOP/SecretVariable/blob/main/guide/cli.md).
+You need a SecretVariable server to talk to. It is a single Docker image plus PostgreSQL: see the [self-hosting guide](https://www.secretvariable.com/docs/self-hosting). The full command reference is in the [CLI guide](https://www.secretvariable.com/docs/cli); [installation](https://www.secretvariable.com/docs/installation) walks through the whole setup.
 
 ## Security notes
 

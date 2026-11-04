@@ -1,6 +1,6 @@
 {
   "name": "@secretvariable/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pull, push and run .env files stored in a self-hosted SecretVariable server",
   "keywords": [
     "env",
@@ -12,7 +12,7 @@
     "cli",
     "devops"
   ],
-  "homepage": "https://github.com/OxygenOP/SecretVariable#readme",
+  "homepage": "https://www.secretvariable.com",
   "bugs": {
     "url": "https://github.com/OxygenOP/SecretVariable/issues"
   },

@@ -4,7 +4,7 @@ import { CliError, type IO } from "./io.js";
 
 declare const __PKG_VERSION__: string | undefined;
 /** Injected from package.json by the bundler; falls back to the package.json value when run from source (tests, tsx). */
-export const VERSION: string = typeof __PKG_VERSION__ === "string" ? __PKG_VERSION__ : "0.1.0";
+export const VERSION: string = typeof __PKG_VERSION__ === "string" ? __PKG_VERSION__ : "0.1.1";
 
 const HELP = `secretvariable ${VERSION}: store and sync .env files
 
