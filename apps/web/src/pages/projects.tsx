@@ -74,7 +74,7 @@ export function ProjectsPage() {
               <span className="step">1</span><span className="t">Create a project</span><span className="d">One project per app or service.</span><Icon name="arrow" className="ico arrow" />
             </button>
             <div><span className="step">2</span><span className="t">Install the CLI</span><span className="d mono">npm i -g @secretvariable/cli</span></div>
-            <div><span className="step">3</span><span className="t">Push your .env</span><span className="d mono">secvar push</span></div>
+            <div><span className="step">3</span><span className="t">Push your .env</span><span className="d mono">svar push</span></div>
             <div><span className="step">4</span><span className="t">Invite your team</span><span className="d">Choose which environments they see.</span></div>
           </div>
         </section>
@@ -112,7 +112,7 @@ export function ProjectsPage() {
         </section>
       )}
 
-      {!noProjects && !projects.loading && <CodeLine>secvar init</CodeLine>}
+      {!noProjects && !projects.loading && <CodeLine>svar init</CodeLine>}
       {creating && <NewProject orgId={org.id} onClose={() => setCreating(false)} />}
     </div>
   );

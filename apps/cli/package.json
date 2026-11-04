@@ -23,7 +23,7 @@
   },
   "bin": {
     "secretvariable": "dist/index.js",
-    "secvar": "dist/index.js"
+    "svar": "dist/index.js"
   },
   "files": [
     "dist"

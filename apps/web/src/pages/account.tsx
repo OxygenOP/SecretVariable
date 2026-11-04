@@ -17,7 +17,7 @@ export function InvitationsPage() {
     <div className="page">
       <div className="title-row"><div><h1>Invitations</h1><p className="sub">Projects you have been invited to join with this email address.</p></div></div>
       {inv.error ? <ErrorBox error={inv.error} retry={inv.reload} /> : inv.loading ? <Loading /> : !inv.data!.length ? (
-        <div className="empty"><h3>No pending invitations</h3><p>When someone invites you to a project it will show up here. You can also open an invitation link you were sent, or accept a token from the command line.</p><CodeLine>secvar accept INVITE_TOKEN</CodeLine></div>
+        <div className="empty"><h3>No pending invitations</h3><p>When someone invites you to a project it will show up here. You can also open an invitation link you were sent, or accept a token from the command line.</p><CodeLine>svar accept INVITE_TOKEN</CodeLine></div>
       ) : (
         <table className="table" aria-label="Invitations">
           <thead><tr><th className="wide">Project</th><th>Invited by</th><th>Role</th><th>Expires</th><th /></tr></thead>
@@ -152,7 +152,7 @@ export function AccountPage() {
           <div className="body"><ThemeChoice /></div>
         </section>
         <section className="setting">
-          <div className="about"><h2>Personal access tokens</h2><p>Used by the command-line tool. Signing in with <span className="mono">secvar login</span> creates one for you.</p></div>
+          <div className="about"><h2>Personal access tokens</h2><p>Used by the command-line tool. Signing in with <span className="mono">svar login</span> creates one for you.</p></div>
           <div className="body">
             {tokens.error ? <ErrorBox error={tokens.error} retry={tokens.reload} /> : tokens.loading ? <Loading /> : personal.length === 0 ? <p className="muted">No personal tokens.</p> : (
               <div className="list-rows">
@@ -171,8 +171,8 @@ export function AccountPage() {
           <div className="about"><h2>Command-line tool</h2><p>Install it, sign in, and link your project folder.</p></div>
           <div className="body">
             <CodeLine>npm install -g @secretvariable/cli</CodeLine>
-            <CodeLine>{`secvar login --server ${location.origin}`}</CodeLine>
-            <CodeLine>secvar init</CodeLine>
+            <CodeLine>{`svar login --server ${location.origin}`}</CodeLine>
+            <CodeLine>svar init</CodeLine>
           </div>
         </section>
       </div>

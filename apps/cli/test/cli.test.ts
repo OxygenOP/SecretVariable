@@ -64,16 +64,16 @@ describe("cli", () => {
     expect(r.err).toContain("secretvariable login");
   });
 
-  it("works under the short name `secvar` and shows it in hints", async () => {
+  it("works under the short name `svar` and shows it in hints", async () => {
     const fresh = new Machine();
     const out: string[] = [];
     const err: string[] = [];
-    const io: IO = { prog: "secvar", cwd: fresh.cwd, isTTY: false, env: { PATH: process.env.PATH, SECRETVARIABLE_CONFIG_DIR: fresh.home } as NodeJS.ProcessEnv, out: (s) => out.push(s), err: (s) => err.push(s), ask: async () => null };
+    const io: IO = { prog: "svar", cwd: fresh.cwd, isTTY: false, env: { PATH: process.env.PATH, SECRETVARIABLE_CONFIG_DIR: fresh.home } as NodeJS.ProcessEnv, out: (s) => out.push(s), err: (s) => err.push(s), ask: async () => null };
     expect(await main(["projects"], io)).toBe(1);
-    expect(err.join("\n")).toContain("Run: secvar login");
+    expect(err.join("\n")).toContain("Run: svar login");
     expect(err.join("\n")).not.toContain("secretvariable login");
     expect(await main(["help"], io)).toBe(0);
-    expect(out.join("\n")).toContain("secvar 0.1.0");
+    expect(out.join("\n")).toContain("svar 0.1.0");
     expect(out.join("\n")).toContain("pull  [--env E]");
     expect(out.join("\n")).not.toMatch(/secretvariable (pull|push|login)/);
   });
