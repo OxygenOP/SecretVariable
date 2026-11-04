@@ -1,5 +1,8 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import rateLimit from "@fastify/rate-limit";
+import fastifyStatic from "@fastify/static";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { ZodError } from "zod";
 import type pg from "pg";
 import type { Config } from "./config.js";
@@ -33,8 +36,13 @@ export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyIn
   teamRoutes(app, ctx);
   tokenRoutes(app, ctx);
 
+  const webDir = config.webDir && existsSync(join(config.webDir, "index.html")) ? config.webDir : null;
+  if (webDir) await app.register(fastifyStatic, { root: webDir, cacheControl: true, maxAge: "1h", setHeaders: (res, path) => { if (path.endsWith("index.html")) res.header("cache-control", "no-cache"); } });
+
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith("/api/")) return reply.code(404).send({ error: { code: "not_found", message: "Not found" } });
+    // single-page app: unknown GET paths get the app shell
+    if (webDir && req.method === "GET") return reply.header("cache-control", "no-cache").sendFile("index.html");
     return reply.code(404).send("Not found");
   });
   return app;

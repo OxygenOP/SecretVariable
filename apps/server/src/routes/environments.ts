@@ -102,7 +102,7 @@ export function environmentRoutes(app: FastifyInstance, { pool, config }: AppCtx
     const { env, ctx } = await loadEnv(pool, a, environmentId);
     requireEnv(a, ctx, env.id, "read");
     const r = await pool.query(
-      `SELECT v.id, v.number, v.message, u.name AS "authorName", v.created_at AS "createdAt",
+      `SELECT v.id, v.number, v.message, u.name AS "authorName", v.created_at AS "createdAt", v.summary,
               (SELECT count(*)::int FROM variables x WHERE x.version_id = v.id) AS "variableCount"
          FROM versions v LEFT JOIN users u ON u.id = v.author_id
         WHERE v.environment_id = $1 ORDER BY v.number DESC`, [env.id]);
@@ -127,6 +127,7 @@ export function environmentRoutes(app: FastifyInstance, { pool, config }: AppCtx
   app.get("/api/v1/environments/:environmentId/versions/:number", async (req) => {
     const a = await authenticate(pool, req);
     const params = parse(z.object({ environmentId: uuidParam, number: z.union([z.literal("head"), z.coerce.number().int().min(1)]) }), req.params);
+    const { keys: keysOnly } = parse(z.object({ keys: z.enum(["1", "true"]).optional() }), req.query);
     const { env, ctx } = await loadEnv(pool, a, params.environmentId);
     requireEnv(a, ctx, env.id, "read");
     const r = await pool.query(
@@ -136,6 +137,11 @@ export function environmentRoutes(app: FastifyInstance, { pool, config }: AppCtx
       [env.id, params.number === "head" ? env.headVersionId : params.number]);
     const version = r.rows[0];
     if (!version) throw notFound(params.number === "head" ? "This environment has no versions yet" : "Version not found");
+    if (keysOnly) {
+      // names only: nothing is decrypted, so this is not recorded as reading secrets
+      const k = await pool.query("SELECT key FROM variables WHERE version_id = $1 ORDER BY key", [version.id]);
+      return { environment: { id: env.id, name: env.name }, version, keys: k.rows.map((r) => r.key as string) };
+    }
     const vars = await readVersionVars(pool, dekOf(ctx), version.id);
     await audit(pool, { orgId: ctx.project.orgId, projectId: env.projectId, actorId: a.user.id, action: "variables.read", target: env.name, meta: { version: version.number, via: a.token.kind }, ip: req.ip });
     return { environment: { id: env.id, name: env.name }, version, variables: vars };
