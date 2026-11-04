@@ -16,14 +16,16 @@ importers:
         version: 5.9.3
 
   apps/cli:
-    dependencies:
-      '@secretvariable/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
     devDependencies:
       '@secretvariable/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
+      '@secretvariable/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       tsx:
         specifier: ^4.23.15
         version: 4.23.15

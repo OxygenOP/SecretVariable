@@ -13,6 +13,29 @@ describe("health", () => {
   });
 });
 
+describe("response headers", () => {
+  it("never lets API responses be cached and refuses framing", async () => {
+    const c = new Client(ctx.app);
+    const reg = await c.post("/api/v1/auth/register", { email: "headers@example.com", name: "Headers", password: "a long password!" });
+    const r = await ctx.app.inject({ method: "GET", url: "/api/v1/me", headers: { authorization: `Bearer ${reg.body.token}` } });
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(r.headers["x-content-type-options"]).toBe("nosniff");
+    expect(r.headers["x-frame-options"]).toBe("DENY");
+    expect(r.headers["content-security-policy"]).toBe("frame-ancestors 'none'");
+    expect((await ctx.app.inject({ method: "GET", url: "/api/health" })).headers["cache-control"]).toBeUndefined();
+  });
+});
+
+describe("races", () => {
+  it("answers 409, not 500, when the same email registers twice at once", async () => {
+    const body = { email: "race@example.com", name: "Race", password: "a long password!" };
+    const results = await Promise.all(Array.from({ length: 6 }, () => new Client(ctx.app).post("/api/v1/auth/register", body)));
+    const codes = results.map((r) => r.status).sort();
+    expect(codes.filter((c) => c === 201)).toHaveLength(1);
+    expect(codes.filter((c) => c === 409)).toHaveLength(5);
+  });
+});
+
 describe("auth", () => {
   it("registers, logs in, returns me, logs out", async () => {
     const c = new Client(ctx.app);

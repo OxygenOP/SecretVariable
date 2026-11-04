@@ -197,7 +197,7 @@ const ok = (m) => console.log(`ok ${++step} - ${m}`);
   assert.equal(await theme(), "dark");
   await page.click("button[aria-label='Switch to light mode']");
   assert.equal(await theme(), "light");
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(246, 246, 247)"); // fades over 150ms
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(250, 250, 250)"); // fades over 150ms
   await page.reload(); await page.waitForSelector("h1:has-text('Projects')");
   assert.equal(await theme(), "light");
   await page.click("a[aria-label='Account']");

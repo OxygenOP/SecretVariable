@@ -19,8 +19,8 @@ Teams keep `.env` files in chat threads, password managers and the heads of whoe
 - **Versions, diffs, rollback.** Saving creates `v1, v2, v3 ...`. Compare any two versions (key names by default, values only on request) and roll back by saving an old version as a new one. Nothing is rewritten.
 - **Encrypted at rest.** AES-256-GCM envelope encryption: a master key you control wraps a data key per project, and every value is sealed with its own nonce and bound to its key and version.
 - **Access control.** Admin, editor and viewer roles, plus per-environment access: give a contractor read access to `staging` only. Hidden environments simply do not exist for them.
-- **Invitations.** Single-use, email-bound links with an expiry you choose (1-30 days) that admins can extend. No mail server required.
-- **Two-step verification.** Authenticator app (QR setup), email codes as a backup, and single-use recovery codes. Email needs an SMTP server; everything else works without.
+- **Invitations.** Single-use, email-bound links with an expiry you choose (1-30 days) that admins can extend. Share the link yourself, or, if you configure SMTP, have the server email it (and resend it) for you.
+- **Two-step verification.** Authenticator app (QR setup), email codes as a backup, and single-use recovery codes. Email codes need an SMTP server; everything else works without.
 - **Web app, CLI and desktop shell.** View and edit variables in the browser (masked until you reveal them; light and dark themes), `pull`/`push`/`run` from the terminal, or use the Tauri desktop wrapper.
 - **CI-friendly tokens.** Project- and environment-scoped, read-only or read/write service tokens that expire and can be revoked.
 - **Audit log.** Who read, changed or shared what, and when. Secret values are never written to it.
@@ -35,11 +35,9 @@ Teams keep `.env` files in chat threads, password managers and the heads of whoe
 | ![Comparing two versions](assets/screenshots/compare.png) | ![Projects overview](assets/screenshots/projects.png) |
 | ![Inviting someone to selected environments](assets/screenshots/invite.png) | |
 
-Phone layout and the native desktop app (Tauri):
+Phone layout:
 
 <img src="assets/screenshots/mobile.png" width="260" alt="Phone layout" />
-
-![The desktop app showing the projects overview](assets/screenshots/desktop.png)
 
 </details>
 
@@ -64,7 +62,7 @@ Open <http://localhost:8080>, create your account (you become the owner of a per
 The command is `svar` (the long name `secretvariable` works too).
 
 ```bash
-npm install -g @secretvariable/cli     # once published; until then see guide/cli.md to build it
+npm install -g @secretvariable/cli     # Node 20+; or build it from source, see guide/cli.md
 svar login --server https://secrets.example.com
 cd my-project
 svar init                    # link this folder to a project
@@ -84,7 +82,7 @@ In CI, set `SECRETVARIABLE_URL` and `SECRETVARIABLE_TOKEN` (a read-only service 
 apps/server   Fastify + PostgreSQL API (auth, orgs, projects, environments, versions, audit)
 apps/web      React + Vite web app, served by the server
 apps/cli      the `secretvariable` command
-apps/desktop  Tauri shell around your server's web app
+apps/desktop  optional Tauri shell around your server's web app
 packages/crypto  envelope encryption primitives (AES-256-GCM)
 packages/shared  .env parser/serializer/diff and shared types
 ```

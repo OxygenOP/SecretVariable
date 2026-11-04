@@ -15,6 +15,7 @@ services:
       SV_ALLOW_REGISTRATION: ${SV_ALLOW_REGISTRATION:-true}
       SV_SMTP_URL: ${SV_SMTP_URL:-}
       SV_MAIL_FROM: ${SV_MAIL_FROM:-SecretVariable <no-reply@localhost>}
+      SV_PUBLIC_URL: ${SV_PUBLIC_URL:-}
     depends_on:
       db:
         condition: service_healthy

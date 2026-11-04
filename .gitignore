@@ -25,3 +25,7 @@ apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 master.key
 *.key
+
+# files written by manual CLI runs inside the repo
+apps/cli/*.env
+*.tgz
