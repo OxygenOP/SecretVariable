@@ -9,5 +9,8 @@ export interface Project { id: string; orgId: string; name: string; slug: string
 export interface Environment { id: string; projectId: string; name: string; headNumber: number | null; headVersionId: string | null; variableCount: number; updatedAt: string | null; access: Access }
 export interface VersionSummary { id: string; number: number; message: string; authorName: string | null; createdAt: string; variableCount: number }
 export interface MemberInfo { userId: string; name: string; email: string; role: ProjectRole | "owner"; scope: MemberScope; environmentIds: string[]; grants: { environmentId: string; access: Access }[] }
-export interface InviteInfo { id: string; email: string; role: ProjectRole; scope: MemberScope; expiresAt: string; acceptedAt: string | null; environmentIds: string[] }
+export interface InviteInfo { id: string; email: string; role: ProjectRole; scope: MemberScope; expiresAt: string; expired?: boolean; acceptedAt: string | null; environmentIds: string[] }
+export type MfaMethod = "totp" | "email" | "recovery";
+export interface MfaChallenge { challenge: string; methods: MfaMethod[]; emailHint: string | null }
+export interface TwoFactorStatus { enabled: boolean; enabledAt: string | null; emailBackup: boolean; emailAvailable: boolean; recoveryCodesRemaining: number }
 export interface AuditEntry { id: number; action: string; actorName: string | null; target: string | null; meta: Record<string, unknown>; ip: string | null; createdAt: string }

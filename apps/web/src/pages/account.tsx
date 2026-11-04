@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import { useTheme, type ThemePref } from "../theme";
 import { CodeLine, CopyButton, ErrorBox, Icon, Loading, Modal, Who, absTime, relTime, useAsync, usePageTitle, useToast } from "../ui";
 import { actionLabel } from "./labels";
+import { TwoFactorSection } from "./security";
 
 export function InvitationsPage() {
   usePageTitle("Invitations");
@@ -151,6 +152,7 @@ export function AccountPage() {
           <div className="about"><h2>Appearance</h2><p>Light, dark, or follow your device. This is remembered on this browser.</p></div>
           <div className="body"><ThemeChoice /></div>
         </section>
+        <TwoFactorSection />
         <section className="setting">
           <div className="about"><h2>Personal access tokens</h2><p>Used by the command-line tool. Signing in with <span className="mono">svar login</span> creates one for you.</p></div>
           <div className="body">

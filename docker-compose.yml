@@ -13,6 +13,8 @@ services:
       DATABASE_URL: postgres://secretvariable:${POSTGRES_PASSWORD:-secretvariable}@db:5432/secretvariable
       SV_MASTER_KEY: ${SV_MASTER_KEY:?Set SV_MASTER_KEY, e.g. export SV_MASTER_KEY=$(openssl rand -hex 32)}
       SV_ALLOW_REGISTRATION: ${SV_ALLOW_REGISTRATION:-true}
+      SV_SMTP_URL: ${SV_SMTP_URL:-}
+      SV_MAIL_FROM: ${SV_MAIL_FROM:-SecretVariable <no-reply@localhost>}
     depends_on:
       db:
         condition: service_healthy

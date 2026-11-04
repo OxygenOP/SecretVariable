@@ -1,20 +1,21 @@
 import type { FastifyInstance } from "fastify";
 import { generateKey } from "@secretvariable/crypto";
 import { buildApp } from "../src/app.js";
+import type { Mailer } from "../src/mailer.js";
 import type { Config } from "../src/config.js";
 import { createPool, migrate } from "../src/db.js";
 
 export const DB_URL = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost:5432/secretvariable_test";
 
-export async function setup(overrides: Partial<Config> = {}) {
+export async function setup(overrides: Partial<Config> = {}, opts: { mailer?: Mailer } = {}) {
   const pool = createPool(DB_URL);
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await migrate(pool);
   const config: Config = {
     databaseUrl: DB_URL, masterKey: generateKey(), host: "127.0.0.1", port: 0, webDir: null,
-    allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, ...overrides,
+    allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, smtpUrl: null, mailFrom: "test@example.com", ...overrides,
   };
-  const app = await buildApp(config, pool);
+  const app = await buildApp(config, pool, opts);
   return { app, pool, config };
 }
 

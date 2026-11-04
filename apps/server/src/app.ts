@@ -7,6 +7,8 @@ import { ZodError } from "zod";
 import type pg from "pg";
 import type { Config } from "./config.js";
 import { HttpError } from "./errors.js";
+import { createMailer, type Mailer } from "./mailer.js";
+import { mfaRoutes } from "./routes/mfa.js";
 import { authRoutes } from "./routes/auth.js";
 import { environmentRoutes } from "./routes/environments.js";
 import { orgRoutes } from "./routes/orgs.js";
@@ -14,10 +16,11 @@ import { projectRoutes } from "./routes/projects.js";
 import { teamRoutes } from "./routes/teams.js";
 import { tokenRoutes } from "./routes/tokens.js";
 
-export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyInstance> {
+export async function buildApp(config: Config, pool: pg.Pool, opts: { mailer?: Mailer } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: config.logger ? { redact: ["req.headers.authorization"] } : false, trustProxy: true, bodyLimit: 2 * 1024 * 1024 });
   await app.register(rateLimit, { global: false });
-  const ctx = { pool, config };
+  const mailer = opts.mailer ?? createMailer(config, (s) => app.log.info(s));
+  const ctx = { pool, config, mailer };
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: { code: err.code, message: err.message } });
@@ -31,6 +34,7 @@ export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyIn
   // public and carries no data; CORS-open so the desktop app can verify a server URL before navigating to it
   app.get("/api/health", async (_req, reply) => reply.header("access-control-allow-origin", "*").send({ ok: true }));
   authRoutes(app, ctx);
+  mfaRoutes(app, ctx);
   orgRoutes(app, ctx);
   projectRoutes(app, ctx);
   environmentRoutes(app, ctx);

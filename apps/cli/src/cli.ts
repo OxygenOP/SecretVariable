@@ -9,7 +9,7 @@ const HELP = `secretvariable ${VERSION}: store and sync .env files
 Usage: secretvariable <command> [options]
 
 Account
-  login [--server URL] [--email E --password P | --token T]
+  login [--server URL] [--email E --password P | --token T] [--code C] [--method totp|recovery|email]
   logout                        forget local credentials
   whoami
 
@@ -30,7 +30,7 @@ History
   rollback <version>
 
 Team
-  invite <email> [--role viewer|editor|admin] [--envs a,b --access read|write]
+  invite <email> [--role viewer|editor|admin] [--envs a,b --access read|write] [--expires DAYS]
   accept <invite-token>
   members
   token create [--name N --env E --access read|write --expires DAYS] | token list | token revoke <id>

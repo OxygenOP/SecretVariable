@@ -140,4 +140,40 @@ CREATE INDEX invites_email_idx ON invites(email);
     name: "003_version_summary",
     sql: `ALTER TABLE versions ADD COLUMN summary jsonb;`,
   },
+  {
+    name: "004_two_factor",
+    sql: `
+ALTER TABLE users
+  ADD COLUMN totp_secret_enc text,
+  ADD COLUMN totp_enabled_at timestamptz,
+  ADD COLUMN totp_last_step bigint NOT NULL DEFAULT -1,
+  ADD COLUMN totp_pending_enc text,
+  ADD COLUMN totp_pending_at timestamptz,
+  ADD COLUMN email_backup boolean NOT NULL DEFAULT true;
+
+CREATE TABLE recovery_codes (
+  id bigserial PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash text NOT NULL,
+  used_at timestamptz,
+  UNIQUE (user_id, code_hash)
+);
+
+CREATE TABLE mfa_challenges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  client_name text NOT NULL DEFAULT '',
+  attempts integer NOT NULL DEFAULT 0,
+  email_code_hash text,
+  email_code_expires_at timestamptz,
+  email_sent_at timestamptz,
+  email_sends integer NOT NULL DEFAULT 0,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX mfa_challenges_user_idx ON mfa_challenges(user_id);
+`,
+  },
 ];

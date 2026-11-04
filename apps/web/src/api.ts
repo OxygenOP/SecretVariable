@@ -30,7 +30,8 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
   let json: any = null;
   try { json = text ? JSON.parse(text) : null; } catch { /* not json */ }
   if (!res.ok) {
-    if (res.status === 401 && token) { setToken(null); onUnauthorized(); }
+    // only a rejected session token ends the session; wrong passwords or codes (other 401 codes) are ordinary form errors
+    if (res.status === 401 && token && json?.error?.code === "unauthorized") { setToken(null); onUnauthorized(); }
     throw new ApiError(res.status, json?.error?.code ?? "error", json?.error?.message ?? `Request failed (${res.status})`);
   }
   return json as T;

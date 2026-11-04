@@ -5,10 +5,16 @@
  */
 const { chromium } = require("playwright");
 const assert = require("node:assert/strict");
+const { createHmac } = require("node:crypto");
+const fs = require("node:fs");
 const base = process.env.SV_E2E_URL || "http://localhost:8080";
 const stamp = Date.now().toString(36);
 const pw = "correct horse battery";
 let step = 0;
+// RFC 6238 TOTP so the test can act as the authenticator app
+const b32 = (str) => { const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"; let bits = 0, v = 0; const out = []; for (const ch of str.replace(/[\s=]/g, "")) { v = (v << 5) | A.indexOf(ch); bits += 5; if (bits >= 8) { out.push((v >>> (bits - 8)) & 255); bits -= 8; } } return Buffer.from(out); };
+const totp = (secret, offsetSteps = 0) => { const c = Math.floor(Date.now() / 30000) + offsetSteps; const m = Buffer.alloc(8); m.writeBigUInt64BE(BigInt(c)); const h = createHmac("sha1", b32(secret)).update(m).digest(); const o = h[19] & 15; return String((((h[o] & 0x7f) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1000000).padStart(6, "0"); };
+const MAIL_LOG = process.env.SV_E2E_MAIL_LOG; // optional: server log that contains emailed codes (SV_SMTP_URL=console)
 const ok = (m) => console.log(`ok ${++step} - ${m}`);
 
 (async () => {
@@ -136,12 +142,21 @@ const ok = (m) => console.log(`ok ${++step} - ${m}`);
   await page.fill("#ie", guestEmail);
   await page.check("input[name=scope] >> nth=1");
   await page.selectOption("select[aria-label='Access to staging']", "read");
+  await page.selectOption("#ix", "3");
   await page.click(".modal button.primary:has-text('Create invitation')");
   await page.waitForSelector("text=Invitation created");
   const link = await page.locator(".modal .code code").innerText();
   assert.ok(/\/invite\/svi_/.test(link));
   await page.click(".modal button.primary:has-text('Done')");
-  ok("creates an invitation limited to one environment");
+  await page.waitForSelector("table[aria-label='Pending invitations']");
+  assert.ok((await page.locator("table[aria-label='Pending invitations']").innerText()).includes("expires in 3 days"));
+  await page.locator("table[aria-label='Pending invitations'] tbody tr").first().hover();
+  await page.click("table[aria-label='Pending invitations'] button:has-text('Extend')");
+  await page.selectOption("#ed", "14");
+  await page.click(".modal button.primary:has-text('Save')");
+  await page.waitForSelector("text=Invitation extended");
+  assert.ok((await page.locator("table[aria-label='Pending invitations']").innerText()).includes("expires in 14 days"));
+  ok("creates an invitation limited to one environment, with an expiry that can be extended");
 
   // --- the guest accepts and only sees staging
   const gctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -190,6 +205,92 @@ const ok = (m) => console.log(`ok ${++step} - ${m}`);
   assert.equal(await theme(), "dark");
   assert.equal(await page.evaluate(() => localStorage.getItem("sv.theme")), "dark");
   ok("light mode switch works, persists and syncs with Account > Appearance");
+
+  // --- two-step verification: set up, sign in with it, backups, turn off
+  await page.click("a[aria-label='Account']");
+  await page.waitForSelector("section[aria-label='Two-step verification']");
+  await page.click("button:has-text('Set up two-step verification')");
+  await page.fill("#sp", "wrong password!");
+  await page.click(".modal button.primary:has-text('Continue')");
+  await page.waitForSelector(".modal .form-error:not(:empty)");
+  await page.fill("#sp", pw);
+  await page.click(".modal button.primary:has-text('Continue')");
+  await page.waitForSelector(".qr img");
+  assert.ok((await page.locator(".qr img").getAttribute("src")).startsWith("data:image/png"));
+  const secret = (await page.locator(".secret-box").innerText()).replace(/\s/g, "");
+  assert.match(secret, /^[A-Z2-7]{32}$/);
+  await page.fill("#sc", "000000");
+  await page.click(".modal button.primary:has-text('Turn on')");
+  await page.waitForSelector(".modal .form-error:not(:empty)");
+  await page.fill("#sc", totp(secret));
+  await page.click(".modal button.primary:has-text('Turn on')");
+  await page.waitForSelector(".recovery-grid");
+  const recovery = await page.locator(".recovery-grid span").allTextContents();
+  assert.equal(recovery.length, 10);
+  assert.ok(await page.locator(".modal button.primary:has-text('Done')").isDisabled()); // must confirm they saved the codes
+  await page.check(".modal input[type=checkbox]");
+  await page.click(".modal button.primary:has-text('Done')");
+  await page.waitForSelector("text=On since");
+  ok("sets up two-step verification with a QR code and shows recovery codes once");
+
+  // sign in again: password alone is not enough
+  const signOut = async () => { await page.click("button[aria-label='Sign out']"); await page.waitForSelector("h1:has-text('Sign in')"); };
+  const passwordStep = async () => { await page.fill("#email", `owen-${stamp}@e2e.test`); await page.fill("#password", pw); await page.click("button.primary.block"); await page.waitForSelector("h1:has-text('Two-step verification')"); };
+  await signOut(); await passwordStep();
+  assert.equal(await page.locator("nav[aria-label='Main']").count(), 0);
+  const before = await page.locator("button.primary.block").boundingBox();
+  await page.fill("#code", "000000");
+  await page.click("button.primary.block");
+  await page.waitForSelector(".form-error:not(:empty)");
+  const after = await page.locator("button.primary.block").boundingBox();
+  assert.equal(after.y, before.y); // the error does not move the button
+  assert.ok((await page.locator(".form-error").innerText()).includes("attempts left"));
+  await page.fill("#code", totp(secret, 1));
+  await page.click("button.primary.block");
+  await page.waitForSelector("nav[aria-label='Main']"); // back where they were, signed in
+  ok("sign-in asks for a code, shows a wrong code without layout shift, accepts the authenticator code");
+
+  if (MAIL_LOG) {
+    await signOut(); await passwordStep();
+    await page.click("button:has-text('Email me a code')");
+    await page.waitForSelector("text=Code sent to");
+    await page.waitForTimeout(400);
+    const log = fs.readFileSync(MAIL_LOG, "utf8");
+    const codes = [...log.matchAll(/sign-in code is (\d{6})/g)].map((m) => m[1]);
+    assert.ok(codes.length, "an emailed code appears in the server log");
+    await page.fill("#code", codes[codes.length - 1]);
+    await page.click("button.primary.block");
+    await page.waitForSelector("nav[aria-label='Main']"); // back where they were, signed in
+    ok("signs in with an emailed code");
+  }
+
+  await signOut(); await passwordStep();
+  await page.click("button:has-text('Use a recovery code')");
+  await page.fill("#code", recovery[0]);
+  await page.click("button.primary.block");
+  await page.waitForSelector("nav[aria-label='Main']"); // back where they were, signed in
+  await signOut(); await passwordStep();
+  await page.click("button:has-text('Use a recovery code')");
+  await page.fill("#code", recovery[0]);
+  await page.click("button.primary.block");
+  await page.waitForSelector(".form-error:not(:empty)");
+  assert.equal(await page.locator("nav[aria-label='Main']").count(), 0); // a recovery code works only once
+  await page.fill("#code", recovery[1]);
+  await page.click("button.primary.block");
+  await page.waitForSelector("nav[aria-label='Main']"); // back where they were, signed in
+  ok("recovery codes work once each");
+
+  await page.click("a[aria-label='Account']");
+  await page.waitForSelector("text=8 of 10 unused");
+  await page.click("section[aria-label='Two-step verification'] button:has-text('Turn off')");
+  await page.fill("#cp", pw);
+  await page.fill("#cc", recovery[2]);
+  await page.click(".modal button.danger");
+  await page.waitForSelector("button:has-text('Set up two-step verification')");
+  ok("turns two-step verification off with password and a code");
+  await signOut();
+  await page.fill("#email", `owen-${stamp}@e2e.test`); await page.fill("#password", pw); await page.click("button.primary.block");
+  await page.waitForSelector("nav[aria-label='Main']"); // back where they were, signed in
 
   // --- sign out
   await page.click("button[aria-label='Sign out']");

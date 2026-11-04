@@ -6,6 +6,8 @@ import { CodeLine, CopyButton, ErrorBox, FormError, Icon, Loading, Modal, Who, a
 import { actionLabel } from "./labels";
 import { useProject } from "./project";
 
+const EXPIRY_OPTIONS: [string, string][] = [["1", "In 1 day"], ["3", "In 3 days"], ["7", "In 7 days"], ["14", "In 14 days"], ["30", "In 30 days"]];
+
 /* ============================ members ============================ */
 type Member = MemberInfo & { viaOrg?: boolean };
 
@@ -61,6 +63,7 @@ export function MembersPage() {
   const [inviting, setInviting] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const [created, setCreated] = useState<{ email: string; link: string } | null>(null);
+  const [extending, setExtending] = useState<InviteInfo | null>(null);
   const envName = (id: string) => envs.find((e) => e.id === id)?.name ?? "?";
 
   return (
@@ -99,8 +102,12 @@ export function MembersPage() {
             <tbody>
               {invites.data!.map((i) => (
                 <tr key={i.id}>
-                  <td>{i.email}</td><td><span className="pill">{i.role}</span></td><td className="muted">{relTime(i.expiresAt)}</td>
-                  <td className="row-actions"><button className="btn ghost sm" onClick={async () => { try { await del(`/projects/${project.id}/invites/${i.id}`); invites.reload(); } catch (e) { toast((e as Error).message, true); } }}>Revoke</button></td>
+                  <td>{i.email}</td><td><span className="pill">{i.role}</span></td>
+                  <td className="muted" title={absTime(i.expiresAt)}>{i.expired ? <span className="pill negative">expired</span> : `expires ${relTime(i.expiresAt)}`}</td>
+                  <td className="row-actions">
+                    <button className="btn ghost sm" onClick={() => setExtending(i)}>{i.expired ? "Reopen" : "Extend"}</button>
+                    <button className="btn ghost sm" onClick={async () => { try { await del(`/projects/${project.id}/invites/${i.id}`); invites.reload(); } catch (e) { toast((e as Error).message, true); } }}>Revoke</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -109,10 +116,11 @@ export function MembersPage() {
       )}
 
       {inviting && <InviteModal onClose={() => setInviting(false)} onCreated={(email, link) => { setInviting(false); setCreated({ email, link }); invites.reload(); }} />}
+      {extending && <ExtendModal invite={extending} projectId={project.id} onClose={() => setExtending(null)} onDone={() => { setExtending(null); invites.reload(); toast("Invitation extended"); }} />}
       {editing && <EditAccessModal member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); members.reload(); toast("Access updated"); }} />}
       {created && (
         <Modal title="Invitation created" onClose={() => setCreated(null)}>
-          <p className="muted">Send this link to {created.email}. It works once, only for that email address, and expires in 7 days. Email is not sent automatically.</p>
+          <p className="muted">Send this link to {created.email}. It works once, only for that email address, and stops working after the expiry you chose. Email is not sent automatically.</p>
           <div className="code"><code>{created.link}</code><CopyButton text={created.link} label="Copy invitation link" /></div>
           <div className="modal-actions"><button className="btn primary" onClick={() => setCreated(null)}>Done</button></div>
         </Modal>
@@ -121,16 +129,32 @@ export function MembersPage() {
   );
 }
 
+function ExtendModal({ invite, projectId, onClose, onDone }: { invite: InviteInfo; projectId: string; onClose: () => void; onDone: () => void }) {
+  const [days, setDays] = useState("7");
+  const [error, setError] = useState("");
+  return (
+    <Modal title={invite.expired ? "Reopen invitation" : "Extend invitation"} onClose={onClose}>
+      <form className="form" onSubmit={async (e) => { e.preventDefault(); try { await post(`/projects/${projectId}/invites/${invite.id}/extend`, { expiresInDays: Number(days) }); onDone(); } catch (err) { setError((err as Error).message); } }}>
+        <p className="muted">The link already sent to {invite.email} keeps working. The new deadline counts from now.</p>
+        <div className="field"><label htmlFor="ed">Expires</label><select id="ed" className="select" value={days} onChange={(e) => setDays(e.target.value)}>{EXPIRY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+        <FormError message={error} />
+        <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary">Save</button></div>
+      </form>
+    </Modal>
+  );
+}
+
 function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (email: string, link: string) => void }) {
   const { project, envs } = useProject();
   const [email, setEmail] = useState("");
   const [acc, setAcc] = useState<{ role: string; scope: "all" | "selected"; grants: Record<string, "read" | "write" | "none"> }>({ role: "viewer", scope: "all", grants: {} });
+  const [days, setDays] = useState("7");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError("");
     try {
-      const r = await post(`/projects/${project.id}/invites`, { email, role: acc.role, scope: acc.role === "admin" ? "all" : acc.scope, grants: grantsOut(acc.grants) });
+      const r = await post(`/projects/${project.id}/invites`, { email, role: acc.role, scope: acc.role === "admin" ? "all" : acc.scope, grants: grantsOut(acc.grants), expiresInDays: Number(days) });
       onCreated(email, `${location.origin}/invite/${r.token}`);
     } catch (err) { setError((err as Error).message); setBusy(false); }
   }
@@ -139,6 +163,9 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       <form className="form" onSubmit={submit}>
         <div className="field"><label htmlFor="ie">Email</label><input id="ie" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teammate@company.com" autoFocus required /></div>
         <AccessEditor initial={acc} envs={envs} onChange={setAcc} />
+        <div className="field"><label htmlFor="ix">Invitation expires</label>
+          <select id="ix" className="select" value={days} onChange={(e) => setDays(e.target.value)}>{EXPIRY_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <span className="hint">After that the link stops working until you extend it.</span></div>
         <FormError message={error} />
         <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>Create invitation</button></div>
       </form>

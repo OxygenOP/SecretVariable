@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync, existsSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { generateKey } from "@secretvariable/crypto";
+import { base32Decode, generateKey, totpCode } from "@secretvariable/crypto";
 import { buildApp } from "../../server/src/app.js";
 import { createPool, migrate } from "../../server/src/db.js";
 import { main } from "../src/cli.js";
@@ -16,7 +16,7 @@ beforeAll(async () => {
   const pool = createPool(DB);
   await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await migrate(pool);
-  const app = await buildApp({ databaseUrl: DB, masterKey: generateKey(), host: "127.0.0.1", port: 0, webDir: null, allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false }, pool);
+  const app = await buildApp({ databaseUrl: DB, masterKey: generateKey(), host: "127.0.0.1", port: 0, webDir: null, allowRegistration: true, sessionTtlDays: 30, rateLimitMax: 1000, logger: false, smtpUrl: null, mailFrom: "test@example.com" }, pool);
   await app.listen({ host: "127.0.0.1", port: 0 });
   const addr = app.server.address() as { port: number };
   url = `http://127.0.0.1:${addr.port}`;
@@ -174,6 +174,51 @@ describe("cli", () => {
     expect(list.out).toContain("staging");
     expect(list.out).not.toContain("production");
     expect((await m.sv("members")).out).toContain("staging:read");
+  });
+
+  it("signs in with two-step verification (authenticator code, recovery code, interactive prompt)", async () => {
+    const email = await signup("Tess");
+    const pw = "correct horse battery";
+    const sess = (await (await fetch(`${url}/api/v1/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password: pw }) })).json()) as { token: string };
+    const api = (path: string, body: unknown) => fetch(`${url}/api/v1${path}`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${sess.token}` }, body: JSON.stringify(body) }).then((r) => r.json() as Promise<any>);
+    const setupRes = await api("/me/2fa/setup", { password: pw });
+    const secret = base32Decode(setupRes.secret);
+    const at = (steps: number) => totpCode(secret, Date.now() + steps * 30_000);
+    const { recoveryCodes } = await api("/me/2fa/enable", { code: at(0) });
+
+    const t = new Machine();
+    const base = ["login", "--server", url, "--email", email, "--password", pw];
+    const noCode = await t.sv(...base);
+    expect(noCode.code).toBe(1);
+    expect(noCode.err).toContain("--code");
+    expect((await t.sv(...base, "--code", "000000")).code).toBe(1);
+    expect(existsSync(join(t.home, "config.json"))).toBe(false); // nothing saved without the second step
+    const bad = await t.sv(...base, "--method", "email", "--code", "123456");
+    expect(bad.err).toContain("not available");
+
+    const ok = await t.sv(...base, "--code", at(1));
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain("Signed in as Tess");
+    expect((await t.sv("whoami")).out).toContain(email);
+
+    // interactive: switch to a recovery code at the prompt
+    const t2 = new Machine();
+    const interactive: IO = { cwd: t2.cwd, isTTY: true, env: { PATH: process.env.PATH, SECRETVARIABLE_CONFIG_DIR: t2.home } as NodeJS.ProcessEnv, out: () => {}, err: () => {}, ask: async () => { const a = ["recovery", recoveryCodes[0]][asked++]; return a ?? null; } };
+    let asked = 0;
+    expect(await main(["login", "--server", url, "--email", email, "--password", pw], interactive)).toBe(0);
+    expect(existsSync(join(t2.home, "config.json"))).toBe(true);
+    // the used recovery code does not work again
+    const reuse = await t.sv(...base, "--method", "recovery", "--code", recoveryCodes[0]);
+    expect(reuse.code).toBe(1);
+  });
+
+  it("sets an invitation expiry and validates it", async () => {
+    const dana = await signup("Dora");
+    expect((await m.sv("invite", dana, "--expires", "0")).code).toBe(1);
+    expect((await m.sv("invite", dana, "--expires", "99")).code).toBe(1);
+    const ok = await m.sv("invite", dana, "--role", "viewer", "--expires", "2");
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain("expires");
   });
 
   it("uses a scoped service token from the environment for CI", async () => {

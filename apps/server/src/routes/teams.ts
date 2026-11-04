@@ -5,7 +5,7 @@ import type { AppCtx } from "../app-context.js";
 import { audit } from "../audit.js";
 import { authenticate } from "../auth.js";
 import { tx, type Q } from "../db.js";
-import { badRequest, conflict, forbidden, notFound } from "../errors.js";
+import { badRequest, conflict, forbidden, HttpError, notFound } from "../errors.js";
 import { loadProject, orgRole, requireAdmin } from "../permissions.js";
 import { parse, uuidParam } from "../util.js";
 
@@ -106,8 +106,8 @@ export function teamRoutes(app: FastifyInstance, { pool }: AppCtx): void {
     const ctx = await loadProject(pool, a, projectId);
     requireAdmin(ctx, a);
     const r = await pool.query(
-      `SELECT id, email, role, scope, grants, expires_at AS "expiresAt", created_at AS "createdAt"
-         FROM invites WHERE project_id = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now()
+      `SELECT id, email, role, scope, grants, expires_at AS "expiresAt", created_at AS "createdAt", (expires_at <= now()) AS expired
+         FROM invites WHERE project_id = $1 AND accepted_at IS NULL AND revoked_at IS NULL
         ORDER BY created_at DESC`, [projectId]);
     return { invites: r.rows };
   });
@@ -131,6 +131,22 @@ export function teamRoutes(app: FastifyInstance, { pool }: AppCtx): void {
     await audit(pool, { orgId: ctx.project.orgId, projectId, actorId: a.user.id, action: "invite.create", target: body.email, meta: { role: body.role, scope: body.scope }, ip: req.ip });
     reply.code(201);
     return { invite: { id: r.rows[0].id, email: body.email, expiresAt: r.rows[0].expiresAt }, token };
+  });
+
+  /** Give an invitation (including an expired one) a new deadline, counted from now. The link itself does not change. */
+  app.post("/api/v1/projects/:projectId/invites/:inviteId/extend", async (req) => {
+    const a = await authenticate(pool, req);
+    const p = parse(z.object({ projectId: uuidParam, inviteId: uuidParam }), req.params);
+    const body = parse(z.object({ expiresInDays: z.number().int().min(1).max(30).default(7) }), req.body);
+    const ctx = await loadProject(pool, a, p.projectId);
+    requireAdmin(ctx, a);
+    const r = await pool.query(
+      `UPDATE invites SET expires_at = now() + ($3 || ' days')::interval
+        WHERE id = $1 AND project_id = $2 AND accepted_at IS NULL AND revoked_at IS NULL RETURNING email, expires_at AS "expiresAt"`,
+      [p.inviteId, p.projectId, String(body.expiresInDays)]);
+    if (!r.rowCount) throw notFound("Invite not found");
+    await audit(pool, { orgId: ctx.project.orgId, projectId: p.projectId, actorId: a.user.id, action: "invite.extend", target: r.rows[0].email, meta: { days: body.expiresInDays }, ip: req.ip });
+    return { expiresAt: r.rows[0].expiresAt };
   });
 
   app.delete("/api/v1/projects/:projectId/invites/:inviteId", async (req) => {
@@ -159,9 +175,10 @@ export function teamRoutes(app: FastifyInstance, { pool }: AppCtx): void {
     return tx(pool, async (c) => {
       const r = await c.query(
         `SELECT i.*, p.org_id, p.name AS project_name FROM invites i JOIN projects p ON p.id = i.project_id
-          WHERE ${where} AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now() FOR UPDATE OF i`, [value]);
+          WHERE ${where} AND i.accepted_at IS NULL AND i.revoked_at IS NULL FOR UPDATE OF i`, [value]);
       const inv = r.rows[0];
-      if (!inv) throw notFound("Invite not found or expired");
+      if (!inv) throw notFound("Invite not found. It may have been used or withdrawn.");
+      if (inv.expires_at <= new Date()) throw new HttpError(410, "invite_expired", "This invitation has expired. Ask a project admin for a new one.");
       if (inv.email !== a.user.email) throw forbidden("This invite was sent to a different email address");
       await c.query("INSERT INTO org_members(org_id, user_id, role) VALUES ($1,$2,'member') ON CONFLICT DO NOTHING", [inv.org_id, a.user.id]);
       // drop grants for environments deleted since the invite was sent; never widen the scope

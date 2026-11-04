@@ -32,7 +32,9 @@ Writing locks the environment row, compares the new content with the head, and o
 ## API overview
 Auth: `POST /auth/register|login|logout`, `GET /me`. Orgs: `/orgs`, `/orgs/:id`, members, audit. Projects: `/orgs/:id/projects`, `/projects/:id`, audit. Environments: `/projects/:id/environments`, `/environments/:id`. Versions: `GET|POST /environments/:id/versions`, `GET .../versions/:n|head[?keys=1]`, `POST .../rollback`, `GET .../diff?from&to[&reveal=1]`. Team: members, invites, `/me/invites`, `/invites/accept`. Tokens: `/tokens`. Health: `/api/health`, `/api/config`.
 
-Errors are `{ "error": { "code", "message" } }`.
+Two-step verification: `GET /me/2fa`, `POST /me/2fa/setup|enable|disable|recovery-codes`, `PATCH /me/2fa`; sign-in second step: `POST /auth/2fa/verify`, `POST /auth/2fa/email` (a password login on a protected account returns `{ mfaRequired, challenge, methods }` instead of a token). Invitations: `POST /projects/:id/invites/:inviteId/extend`.
+
+Errors are `{ "error": { "code", "message" } }`. `unauthorized` means the token is bad; other 401 codes (`wrong_password`, `invalid_code`) are form errors.
 
 ## Schema
 Migrations are in `apps/server/src/migrations.ts` and run on start under an advisory lock.
