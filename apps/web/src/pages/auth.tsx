@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { post, ApiError } from "../api";
 import { useAuth } from "../auth";
-import { BrandMark, usePageTitle, useAsync } from "../ui";
+import { BrandMark, FormError, ThemeToggle, usePageTitle, useAsync } from "../ui";
 
 function Side() {
   return (
@@ -51,11 +51,11 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   return (
     <div className="auth">
+      <div className="auth-theme"><ThemeToggle /></div>
       <Side />
       <div className="auth-form">
         <form onSubmit={submit} noValidate>
           <h1>{mode === "login" ? "Sign in" : "Create your account"}</h1>
-          {closed ? <p className="error-text">Registration is disabled on this server. Ask an admin for an invitation.</p> : null}
           {mode === "register" && (
             <div className="field"><label htmlFor="name">Name</label><input id="name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required /></div>
           )}
@@ -65,10 +65,10 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
             <input id="password" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} required />
             {mode === "register" && <span className="hint">At least 10 characters.</span>}
           </div>
-          {error && <div className="error-text" role="alert">{error}</div>}
-          <button className="btn primary" disabled={busy || !!closed} style={{ justifyContent: "center" }}>{busy ? "Please wait" : mode === "login" ? "Sign in" : "Create account"}</button>
-          <p className="muted">
-            {mode === "login" ? <>No account? <Link to="/register" state={{ from }} style={{ color: "var(--text)" }}>Create one</Link></> : <>Already registered? <Link to="/login" state={{ from }} style={{ color: "var(--text)" }}>Sign in</Link></>}
+          <FormError message={error || (closed ? "Registration is closed. Ask an admin for an invite." : "")} />
+          <button className="btn primary block" disabled={busy || !!closed}>{busy ? "Please wait" : mode === "login" ? "Sign in" : "Create account"}</button>
+          <p className="switch-mode">
+            {mode === "login" ? <>No account? <Link to="/register" state={{ from }}>Create one</Link></> : <>Already registered? <Link to="/login" state={{ from }}>Sign in</Link></>}
           </p>
         </form>
       </div>
@@ -94,10 +94,10 @@ export function InvitePage() {
     <div className="page" style={{ maxWidth: 560 }}>
       <div className="title-row"><div><h1>Project invitation</h1><p className="sub">Accept to join the project. The invitation only works for the email address it was sent to.</p></div></div>
       {state.project ? (
-        <div className="panel"><p>You joined <strong>{state.project.name}</strong>.</p><div className="actions" style={{ marginTop: 14 }}><button className="btn primary" onClick={() => nav(`/p/${state.project!.id}`)}>Open project</button></div></div>
+        <div className="panel"><p>You joined <strong>{state.project.name}</strong>.</p><div className="actions stack-top-sm"><button className="btn primary" onClick={() => nav(`/p/${state.project!.id}`)}>Open project</button></div></div>
       ) : (
         <div className="panel form">
-          {state.error && <div className="error-text" role="alert">{state.error}</div>}
+          <FormError message={state.error} />
           <div className="actions"><button className="btn primary" disabled={busy} onClick={accept}>Accept invitation</button><Link className="btn" to="/">Not now</Link></div>
         </div>
       )}

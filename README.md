@@ -11,7 +11,7 @@ Versioned environments, encrypted at rest, shared with exactly the people who ne
 
 ![Variables view with masked values and a "last changed" column](assets/screenshots/variables.png)
 
-Teams keep `.env` files in chat threads, password managers and the heads of whoever set the project up. SecretVariable gives them one place: sign in, pick a project and environment, and `secretvariable pull` writes the `.env` your code needs. Every change is a numbered version you can compare and roll back.
+Teams keep `.env` files in chat threads, password managers and the heads of whoever set the project up. SecretVariable gives them one place: sign in, pick a project and environment, and `sv pull` writes the `.env` your code needs. Every change is a numbered version you can compare and roll back.
 
 ## Features
 
@@ -20,7 +20,7 @@ Teams keep `.env` files in chat threads, password managers and the heads of whoe
 - **Encrypted at rest.** AES-256-GCM envelope encryption: a master key you control wraps a data key per project, and every value is sealed with its own nonce and bound to its key and version.
 - **Access control.** Admin, editor and viewer roles, plus per-environment access: give a contractor read access to `staging` only. Hidden environments simply do not exist for them.
 - **Invitations.** Single-use, email-bound, expiring links. No mail server required.
-- **Web app, CLI and desktop shell.** View and edit variables in the browser (masked until you reveal them), `pull`/`push`/`run` from the terminal, or use the Tauri desktop wrapper.
+- **Web app, CLI and desktop shell.** View and edit variables in the browser (masked until you reveal them; light and dark themes), `pull`/`push`/`run` from the terminal, or use the Tauri desktop wrapper.
 - **CI-friendly tokens.** Project- and environment-scoped, read-only or read/write service tokens that expire and can be revoked.
 - **Audit log.** Who read, changed or shared what, and when. Secret values are never written to it.
 - **Self-hostable in one image.** One container (API + web app) and PostgreSQL. MIT licensed.
@@ -30,8 +30,9 @@ Teams keep `.env` files in chat threads, password managers and the heads of whoe
 
 | | |
 |---|---|
-| ![Version history](assets/screenshots/history.png) | ![Comparing two versions](assets/screenshots/compare.png) |
-| ![Inviting someone to selected environments](assets/screenshots/invite.png) | ![Projects overview](assets/screenshots/projects.png) |
+| ![Light theme](assets/screenshots/variables-light.png) | ![Version history](assets/screenshots/history.png) |
+| ![Comparing two versions](assets/screenshots/compare.png) | ![Projects overview](assets/screenshots/projects.png) |
+| ![Inviting someone to selected environments](assets/screenshots/invite.png) | |
 
 Phone layout and the native desktop app (Tauri):
 
@@ -59,17 +60,19 @@ Open <http://localhost:8080>, create your account (you become the owner of a per
 
 ## Command line
 
+The command is `sv` (the long name `secretvariable` works too).
+
 ```bash
 npm install -g @secretvariable/cli     # once published; until then see guide/cli.md to build it
-secretvariable login --server https://secrets.example.com
+sv login --server https://secrets.example.com
 cd my-project
-secretvariable init                    # link this folder to a project
-secretvariable pull                    # writes .env from the current environment
-secretvariable push -m "rotate Stripe key"
-secretvariable run -- npm start        # inject variables, nothing written to disk
-secretvariable log                     # version history
-secretvariable diff 3 4                # what changed
-secretvariable rollback 3
+sv init                    # link this folder to a project
+sv pull                    # writes .env from the current environment
+sv push -m "rotate Stripe key"
+sv run -- npm start        # inject variables, nothing written to disk
+sv log                     # version history
+sv diff 3 4                # what changed
+sv rollback 3
 ```
 
 In CI, set `SECRETVARIABLE_URL` and `SECRETVARIABLE_TOKEN` (a read-only service token for one environment) instead of logging in. Full reference: [guide/cli.md](guide/cli.md).

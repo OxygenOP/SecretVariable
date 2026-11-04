@@ -1,4 +1,6 @@
 export interface IO {
+  /** Name the program was started as ("sv" or "secretvariable"); used so hints show the command the user typed. */
+  prog?: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
   out: (s: string) => void;

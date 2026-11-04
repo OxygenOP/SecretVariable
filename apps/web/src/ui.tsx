@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useTheme } from "./theme";
 
 /* ---------- icons: 15-18px outline set, drawn inline ---------- */
 const PATHS: Record<string, string> = {
@@ -10,6 +11,8 @@ const PATHS: Record<string, string> = {
   logout: "M10 5H5v14h5M15 8l4 4-4 4M19 12H9",
   search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
   copy: "M9 9h10v11H9zM5 15V4h10",
+  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+  moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",
   eye: "M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   eyeoff: "M3 3l18 18M10.6 6a9.6 9.6 0 0 1 1.4-.1c6.4 0 10 6.1 10 6.1a17 17 0 0 1-3.3 3.9M6.6 7.6A17 17 0 0 0 2 12s3.6 6.5 10 6.5a9.7 9.7 0 0 0 4-.9M9.9 9.9a3 3 0 0 0 4.2 4.2",
   plus: "M12 5v14M5 12h14",
@@ -77,7 +80,7 @@ export function Avatar({ name }: { name: string }) {
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const hue = HUES[h % HUES.length]!;
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("");
-  return <span className="avatar" style={{ background: `hsl(${hue} 22% 20%)`, color: `hsl(${hue} 55% 78%)` }} aria-hidden="true">{initials}</span>;
+  return <span className="avatar" style={{ "--h": hue } as React.CSSProperties} aria-hidden="true">{initials}</span>;
 }
 export const Who = ({ name }: { name: string | null }) => name ? <span className="who"><Avatar name={name} />{name}</span> : <span className="dash">-</span>;
 
@@ -140,6 +143,21 @@ export function CopyButton({ text, label = "Copy", className = "icon-btn" }: { t
 
 export function CodeLine({ children, copy }: { children: string; copy?: string }) {
   return <div className="code"><code><span className="prompt">$</span>{children}</code><CopyButton text={copy ?? children} label="Copy command" /></div>;
+}
+
+/** Reserved 20px slot for a form-level error: showing or hiding a message never moves the layout. */
+export function FormError({ message }: { message?: string | null }) {
+  return <div className="form-error" role="alert" aria-live="polite" title={message || undefined}>{message}</div>;
+}
+
+export function ThemeToggle({ variant = "icon" }: { variant?: "icon" | "rail" }) {
+  const { theme, toggle } = useTheme();
+  const next = theme === "dark" ? "light" : "dark";
+  const label = `Switch to ${next} mode`;
+  if (variant === "rail") {
+    return <button className="rail-item" data-tip={label} aria-label={label} onClick={toggle}><Icon name={theme === "dark" ? "sun" : "moon"} /><span className="label">Theme</span></button>;
+  }
+  return <button className="icon-btn" aria-label={label} title={label} onClick={toggle}><Icon name={theme === "dark" ? "sun" : "moon"} /></button>;
 }
 
 export const Loading = () => <div className="panel" aria-busy="true"><div className="skeleton" style={{ width: "30%" }} /><div className="skeleton" style={{ width: "80%", marginTop: 14 }} /><div className="skeleton" style={{ width: "60%", marginTop: 14 }} /></div>;
