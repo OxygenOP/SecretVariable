@@ -9,8 +9,8 @@ Needs Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/)
 ```bash
 cd apps/desktop
 pnpm icons      # generates icons/ from app-icon.png (once)
-pnpm dev        # run
-pnpm build      # installers in src-tauri/target/release/bundle
+pnpm desktop:dev    # run
+pnpm desktop:build  # installers in src-tauri/target/release/bundle
 ```
 
 To change server later, open `index.html?change=1` (menu entry planned).
