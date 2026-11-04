@@ -136,4 +136,8 @@ CREATE INDEX invites_project_idx ON invites(project_id);
 CREATE INDEX invites_email_idx ON invites(email);
 `,
   },
+  {
+    name: "003_version_summary",
+    sql: `ALTER TABLE versions ADD COLUMN summary jsonb;`,
+  },
 ];

@@ -67,6 +67,13 @@ describe("projects, environments and versions", () => {
     const v2 = await client.post(`/api/v1/environments/${dev}/versions`, { variables: { DB_URL: "postgres://y", NEW: "1" }, message: "second" });
     expect(v2.body.version.number).toBe(2);
 
+    // keys-only reads decrypt nothing and are not audited as secret reads
+    const readsBefore = (await ctx.pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action = 'variables.read'")).rows[0].n;
+    const keys = await client.get(`/api/v1/environments/${dev}/versions/head?keys=1`);
+    expect(keys.body.keys).toEqual(["DB_URL", "NEW"]);
+    expect(keys.body.variables).toBeUndefined();
+    expect((await ctx.pool.query("SELECT count(*)::int AS n FROM audit_log WHERE action = 'variables.read'")).rows[0].n).toBe(readsBefore);
+
     const head = await client.get(`/api/v1/environments/${dev}/versions/head`);
     expect(head.body.variables).toEqual({ DB_URL: "postgres://y", NEW: "1" });
     const old = await client.get(`/api/v1/environments/${dev}/versions/1`);
@@ -75,6 +82,9 @@ describe("projects, environments and versions", () => {
     const list = await client.get(`/api/v1/environments/${dev}/versions`);
     expect(list.body.versions.map((v: any) => v.number)).toEqual([2, 1]);
     expect(list.body.versions[0].message).toBe("second");
+    expect(list.body.versions[0].summary).toEqual({ added: ["NEW"], changed: ["DB_URL"], removed: ["API_KEY"] });
+    expect(list.body.versions[1].summary).toEqual({ added: ["API_KEY", "DB_URL"], changed: [], removed: [] });
+    expect(JSON.stringify(list.body)).not.toContain("postgres://");
 
     const diff = await client.get(`/api/v1/environments/${dev}/diff?from=1&to=2`);
     expect(diff.body.added).toEqual([{ key: "NEW" }]);
