@@ -16,6 +16,7 @@ const PATHS: Record<string, string> = {
   eye: "M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   eyeoff: "M3 3l18 18M10.6 6a9.6 9.6 0 0 1 1.4-.1c6.4 0 10 6.1 10 6.1a17 17 0 0 1-3.3 3.9M6.6 7.6A17 17 0 0 0 2 12s3.6 6.5 10 6.5a9.7 9.7 0 0 0 4-.9M9.9 9.9a3 3 0 0 0 4.2 4.2",
   plus: "M12 5v14M5 12h14",
+  sidebar: "M4 5h16v14H4zM9 5v14",
   x: "M6 6l12 12M18 6L6 18",
   download: "M12 4v11M7 11l5 5 5-5M5 20h14",
   arrow: "M7 17L17 7M9 7h8v8",
@@ -150,12 +151,12 @@ export function FormError({ message }: { message?: string | null }) {
   return <div className="form-error" role="alert" aria-live="polite" title={message || undefined}>{message}</div>;
 }
 
-export function ThemeToggle({ variant = "icon" }: { variant?: "icon" | "rail" }) {
+export function ThemeToggle({ variant = "icon" }: { variant?: "icon" | "side" }) {
   const { theme, toggle } = useTheme();
   const next = theme === "dark" ? "light" : "dark";
   const label = `Switch to ${next} mode`;
-  if (variant === "rail") {
-    return <button className="rail-item" data-tip={label} aria-label={label} onClick={toggle}><Icon name={theme === "dark" ? "sun" : "moon"} /><span className="label">Theme</span></button>;
+  if (variant === "side") {
+    return <button className="side-item" data-tip={label} aria-label={label} onClick={toggle}><Icon name={theme === "dark" ? "sun" : "moon"} /><span className="label">{theme === "dark" ? "Light mode" : "Dark mode"}</span></button>;
   }
   return <button className="icon-btn" aria-label={label} title={label} onClick={toggle}><Icon name={theme === "dark" ? "sun" : "moon"} /></button>;
 }
