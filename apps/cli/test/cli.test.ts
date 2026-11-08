@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -34,12 +34,13 @@ class Machine {
   cwd = mkdtempSync(join(tmpdir(), "sv-proj-"));
   extraEnv: Record<string, string> = {};
   answers: string[] = [];
+  tty = false;
   async sv(...argv: string[]) {
     const out: string[] = [];
     const err: string[] = [];
     const io: IO = {
-      cwd: this.cwd, isTTY: false,
-      env: { PATH: process.env.PATH, SECRETVARIABLE_CONFIG_DIR: this.home, ...this.extraEnv } as NodeJS.ProcessEnv,
+      cwd: this.cwd, isTTY: this.tty,
+      env: { PATH: process.env.PATH, SECRETVARIABLE_CONFIG_DIR: this.home, ...(this.tty ? { NO_COLOR: "1" } : {}), ...this.extraEnv } as NodeJS.ProcessEnv,
       out: (s) => out.push(s), err: (s) => err.push(s),
       ask: async () => (this.answers.length ? this.answers.shift()! : null),
     };
@@ -162,6 +163,149 @@ describe("cli", () => {
     expect((await m.sv("pull", "--force", "--file", "preview.env")).out).toContain("3 variables from preview");
     expect((await m.sv("env", "use", "missing")).code).toBe(1);
     await m.sv("env", "use", "development");
+  });
+
+  describe("switching environments", () => {
+    const DEV = "API_KEY=abc\nDB_URL=postgres://localhost/app\nDEBUG=true\n";
+    const PROD = "API_KEY=prod\nDB_URL=postgres://prod/app\n";
+
+    it("shows the project you are on in env list", async () => {
+      const r = await m.sv("env", "list");
+      expect(r.out).toContain("Project: Web App");
+      expect(r.out).toContain("Using:   development");
+      expect(r.out).toContain("production");
+    });
+
+    it("swaps the env file when you switch, with no --force", async () => {
+      expect(m.read(".env")).toBe(DEV);
+      m.write(".env", PROD);
+      expect((await m.sv("push", "--env", "production", "--yes")).out).toContain("Pushed to production as v1 (project: Web App)");
+      const toProd = await m.sv("env", "use", "production");
+      expect(toProd.code).toBe(0);
+      expect(toProd.out).toContain("Now using Web App / production (v1). Wrote 2 variables");
+      expect(toProd.out).toContain("You are on production");
+      expect(m.read(".env")).toBe(PROD);
+      const toDev = await m.sv("env", "use", "development");
+      expect(toDev.code).toBe(0);
+      expect(m.read(".env")).toBe(DEV);
+      expect(statSync(join(m.cwd, ".env")).mode & 0o777).toBe(0o600);
+      expect(existsSync(join(m.cwd, ".secretvariable.state.json"))).toBe(true);
+      expect(readFileSync(join(m.cwd, ".secretvariable.state.json"), "utf8")).not.toContain("abc"); // a fingerprint, never contents
+    });
+
+    it("never overwrites edits silently: refuses, then backs up or discards on request", async () => {
+      m.write(".env", DEV + "MINE=1\n");
+      const refuse = await m.sv("env", "use", "production");
+      expect(refuse.code).toBe(1);
+      expect(refuse.err).toContain("MINE");
+      expect(refuse.err).toContain("--backup");
+      expect(m.read(".env")).toBe(DEV + "MINE=1\n"); // untouched
+      expect((await m.sv("env", "list")).out).toContain("Using:   development");
+
+      const kept = await m.sv("env", "use", "production", "--backup");
+      expect(kept.code).toBe(0);
+      expect(kept.out).toContain("Saved your local copy");
+      const backup = readdirSync(m.cwd).find((f) => f.startsWith(".env.backup-"))!;
+      expect(readFileSync(join(m.cwd, backup), "utf8")).toContain("MINE=1");
+      expect(statSync(join(m.cwd, backup)).mode & 0o777).toBe(0o600);
+      expect(m.read(".env")).toBe(PROD);
+
+      // "-" returns to where you were; the file is untouched since the switch, so it just swaps
+      expect((await m.sv("env", "use", "-")).out).toContain("Web App / development");
+      expect(m.read(".env")).toBe(DEV);
+
+      m.write(".env", DEV + "SCRATCH=2\n");
+      const dropped = await m.sv("env", "use", "production", "--discard");
+      expect(dropped.code).toBe(0);
+      expect(m.read(".env")).toBe(PROD);
+    });
+
+    it("asks in a terminal and cancels safely", async () => {
+      const t = new Machine();
+      t.home = m.home; t.cwd = m.cwd; t.tty = true;
+      t.write(".env", PROD + "EDITED=1\n");
+      t.answers = ["c"];
+      const cancelled = await t.sv("env", "use", "development");
+      expect(cancelled.code).toBe(1);
+      expect(cancelled.err).toContain("Cancelled");
+      expect(m.read(".env")).toBe(PROD + "EDITED=1\n");
+      t.answers = ["b"];
+      expect((await t.sv("env", "use", "development")).code).toBe(0);
+      expect(m.read(".env")).toBe(DEV);
+    });
+
+    it("accepts unambiguous prefixes and explains ambiguous ones", async () => {
+      expect((await m.sv("env", "use", "prod")).out).toContain("Web App / production");
+      expect((await m.sv("env", "use", "dev")).out).toContain("Web App / development");
+      expect((await m.sv("env", "create", "demo")).code).toBe(0);
+      const amb = await m.sv("env", "use", "de");
+      expect(amb.code).toBe(1);
+      expect(amb.err).toContain("more than one");
+      expect(amb.err).toContain("development");
+      expect((await m.sv("env", "use", "zzz")).err).toContain("Available:");
+      expect((await m.sv("pull", "--env", "prod", "--file", "p.env")).out).toContain("from production");
+      expect((await m.sv("env", "use", "development")).out).toContain("Already using");
+    });
+
+    it("switches without touching the file with --no-pull, and does not create a file you never had", async () => {
+      const before = m.read(".env");
+      expect((await m.sv("env", "use", "production", "--no-pull")).out).toContain("left as it was");
+      expect(m.read(".env")).toBe(before);
+      expect((await m.sv("env", "use", "development")).code).toBe(0); // .env held development; production has other values
+      const fresh = join(m.cwd, ".env");
+      writeFileSync(fresh, ""); // empty is replaceable
+      await m.sv("env", "use", "production");
+      rmSync(fresh);
+      const none = await m.sv("env", "use", "development");
+      expect(none.code).toBe(0);
+      expect(existsSync(fresh)).toBe(false);
+      expect(none.out).toContain("no .env here yet");
+    });
+
+    it("recognises a file from an older CLI when nothing would be lost", async () => {
+      await m.sv("pull", "--force");
+      rmSync(join(m.cwd, ".secretvariable.state.json"));
+      const r = await m.sv("env", "use", "production");
+      expect(r.code).toBe(0);
+      expect(m.read(".env")).toBe(PROD);
+      await m.sv("env", "use", "development");
+    });
+
+    it("lets pull replace an untouched file with a newer version, but not an edited one", async () => {
+      await m.sv("pull", "--force");
+      const head = (await m.sv("log")).out.match(/v(\d+) \(head\)/)![1]!;
+      expect((await m.sv("rollback", "1")).code).toBe(0); // the server moves on
+      const up = await m.sv("pull"); // no --force needed
+      expect(up.code).toBe(0);
+      expect(up.out).toContain(`(project: Web App)`);
+      expect(Number(head)).toBeGreaterThan(0);
+      m.write(".env", m.read(".env") + "EDITED=1\n");
+      expect((await m.sv("rollback", "2")).code).toBe(0);
+      const refused = await m.sv("pull");
+      expect(refused.code).toBe(1);
+      expect(refused.err).toContain("EDITED");
+      expect((await m.sv("pull", "--backup")).code).toBe(0);
+      expect(m.read(".env")).not.toContain("EDITED");
+    });
+
+    it("asks before pushing to production in a terminal", async () => {
+      const t = new Machine();
+      t.home = m.home; t.cwd = m.cwd; t.tty = true;
+      await m.sv("env", "use", "production");
+      t.write(".env", m.read(".env") + "EXTRA=1\n");
+      t.answers = ["n"];
+      const no = await t.sv("push");
+      expect(no.code).toBe(1);
+      expect(no.err).toContain("Nothing was pushed");
+      t.answers = ["y"];
+      const yes = await t.sv("push");
+      expect(yes.code).toBe(0);
+      expect(yes.out).toContain("Pushed to production");
+      // scripts are not blocked: without a terminal there is no prompt
+      m.write(".env", m.read(".env") + "MORE=1\n");
+      expect((await m.sv("push")).code).toBe(0);
+      await m.sv("env", "use", "development");
+    });
   });
 
   it("explains that --send-email needs SMTP on the server, and creates nothing", async () => {

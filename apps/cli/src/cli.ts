@@ -4,7 +4,7 @@ import { CliError, type IO } from "./io.js";
 
 declare const __PKG_VERSION__: string | undefined;
 /** Injected from package.json by the bundler; falls back to the package.json value when run from source (tests, tsx). */
-export const VERSION: string = typeof __PKG_VERSION__ === "string" ? __PKG_VERSION__ : "0.1.1";
+export const VERSION: string = typeof __PKG_VERSION__ === "string" ? __PKG_VERSION__ : "0.2.0";
 
 const HELP = `secretvariable ${VERSION}: store and sync .env files
 
@@ -18,10 +18,13 @@ Account
 Project
   projects                      list projects you can access
   init [--org O] [--project P | --create] [--env NAME]
-  env list | use <name> | create <name> [--from env[@version]]
+  env list                      environments of this project (shows the project you are on)
+  env use <name|-> [--backup | --discard | --no-pull]
+                                switch environment and update .env ("-" = the previous one)
+  env create <name> [--from env[@version]]
 
 Sync
-  pull  [--env E] [--version N] [--file .env] [--force]
+  pull  [--env E] [--version N] [--file .env] [--backup | --force]
   push  [--env E] [--file .env] [-m "message"] [--yes]
   status [--env E]              compare local file with the server
   run   [--env E] -- <command>  run a command with variables injected (nothing written to disk)
