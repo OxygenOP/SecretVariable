@@ -288,6 +288,13 @@ const ok = (m) => console.log(`ok ${++step} - ${m}`);
   await page.click(".modal button.danger");
   await page.waitForSelector("button:has-text('Set up two-step verification')");
   ok("turns two-step verification off with password and a code");
+
+  // --- the CLI guide lives in the app and is reachable from the sidebar
+  await page.click("nav[aria-label='Main'] a:has-text('CLI guide')");
+  await page.waitForSelector("h1:has-text('CLI guide')");
+  const guideText = await page.locator(".guide").innerText();
+  assert.ok(guideText.includes("svar env use") && guideText.includes(`svar login --server ${base}`));
+  ok("the CLI guide is in the app, with this server's address filled in");
   await signOut();
   await page.fill("#email", `owen-${stamp}@e2e.test`); await page.fill("#password", pw); await page.click("button.primary.block");
   await page.waitForSelector("nav[aria-label='Main']"); // back where they were, signed in

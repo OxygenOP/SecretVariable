@@ -17,7 +17,7 @@
   --surface: #0a0a0a;
   --raised: #111111;
   --border: #242424;
-  --rule: #181818;
+  --rule: #262626;
   --control: #333333;
   --text: #ededed;
   --muted: #a1a1a1;
@@ -65,7 +65,7 @@
   --surface: #ffffff;
   --raised: #ffffff;
   --border: #ebebeb;
-  --rule: #f0f0f0;
+  --rule: #e4e4e7;
   --control: #d4d4d4;
   --text: #171717;
   --muted: #666666;
@@ -216,7 +216,7 @@ h1, h2, h3, p { margin: 0; }
 .table th { text-align: left; font-weight: 500; color: var(--muted); font-size: var(--fs-small); padding: 0 var(--s-4) 12px 0; white-space: nowrap; }
 .table td { height: var(--row-height); padding: 0 var(--s-4) 0 0; border-top: 1px solid var(--rule); vertical-align: middle; white-space: nowrap; }
 .table td.wrap { white-space: normal; }
-.table tr:hover td { background: var(--hover); }
+.table tbody tr:hover td { background: var(--hover); }
 .table .num, .table th.num { text-align: right; padding-right: 0; }
 .table td.name { font-weight: 500; }
 .table .row-link { cursor: pointer; }
@@ -335,6 +335,45 @@ h1, h2, h3, p { margin: 0; }
   .app, .burger span, .mmenu, .mmenu-panel, .mmenu-item, .mmenu-foot, .side-name, .side-item .label, .side-collapse .ico { transition: none !important; }
 }
 
+
+/* ---------- project list: each project is its own row ---------- */
+.proj-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); overflow: hidden; }
+.proj-list > li + li { border-top: 1px solid var(--border); }
+.proj { display: flex; align-items: center; gap: 16px; padding: 18px 22px; color: var(--text); transition: background-color .12s; }
+.proj:hover, .proj:focus-visible { background: var(--hover); outline-offset: -2px; }
+.proj-ico { flex: none; width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--ground); font-weight: 700; font-size: 17px; color: var(--muted); }
+.proj-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.proj-name { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj-meta { color: var(--muted); font-size: var(--fs-small); }
+.proj .chev { flex: none; width: 20px; height: 20px; color: var(--faint); transition: transform .15s, color .15s; }
+.proj:hover .chev, .proj:focus-visible .chev { color: var(--text); transform: translateX(3px); }
+.link { color: var(--text); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--control); }
+.link:hover { text-decoration-color: var(--text); }
+
+/* ---------- CLI guide ---------- */
+.guide-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 56px; align-items: start; }
+.guide-body { display: flex; flex-direction: column; gap: 44px; max-width: 920px; min-width: 0; }
+.guide-section { scroll-margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+.guide-section h2 { font-size: var(--fs-section); font-weight: 600; letter-spacing: -0.03em; }
+.guide-section h3 { font-size: 16px; font-weight: 600; margin-top: 10px; }
+.guide-section p { max-width: 74ch; line-height: 1.65; }
+.guide-section code.mono { background: var(--raised); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 13.5px; overflow-wrap: anywhere; }
+.guide-table { border: 1px solid var(--border); border-radius: var(--radius-card); overflow-x: auto; background: var(--surface); }
+.guide-table .table td { white-space: normal; height: auto; padding-top: 14px; padding-bottom: 14px; vertical-align: top; }
+.guide-table .table th { padding-top: 12px; }
+.guide-table .table th, .guide-table .table td { padding-left: 16px; }
+.guide-table .table td:first-child { white-space: nowrap; }
+.guide-table .table tr:first-child td { border-top: 0; }
+.guide-table .table td:last-child, .guide-table .table th:last-child { padding-right: 16px; }
+.code.block { align-items: flex-start; }
+.code.block pre { margin: 0; overflow-x: auto; min-width: 0; flex: 1; font-family: var(--mono); font-size: 14px; line-height: 1.7; padding: 4px 0; }
+.code.block code { white-space: pre; }
+.guide-toc { position: sticky; top: var(--pad); display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--border); padding-left: 16px; }
+.toc-title { font-size: var(--fs-small); font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.guide-toc a { color: var(--muted); padding: 5px 0; font-size: 14px; }
+.guide-toc a:hover { color: var(--text); }
+@media (max-width: 1100px) { .guide-layout { grid-template-columns: minmax(0, 1fr); } .guide-toc { display: none; } }
+
 /* ---------- tablet ---------- */
 @media (max-width: 960px) {
   .table th.hide-sm, .table td.hide-sm { display: none; }
@@ -406,4 +445,11 @@ h1, h2, h3, p { margin: 0; }
   .auth-form { padding: var(--s-6) var(--s-4); }
   .toasts { left: var(--s-4); right: var(--s-4); bottom: 20px; }
   .toast { max-width: none; }
+}
+
+@media (max-width: 700px) {
+  .guide-table .table tr { padding: 12px 0; }
+  .guide-table .table td { padding: 3px 16px; white-space: normal; }
+  .guide .code code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .proj { padding: 16px; gap: 12px; }
 }

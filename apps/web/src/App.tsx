@@ -9,6 +9,7 @@ import { ProjectLayout, ProjectIndex } from "./pages/project";
 import { HistoryPage, VariablesPage } from "./pages/variables";
 import { AuditPage, MembersPage, SettingsPage, TokensPage } from "./pages/team";
 import { ProjectsPage } from "./pages/projects";
+import { CliGuidePage } from "./pages/cli-guide";
 import { BrandMark, Icon, ThemeToggle, useAsync } from "./ui";
 
 interface OrgState { orgs: Org[]; org: Org | null; setOrgId: (id: string) => void; reload: () => void; invites: number }
@@ -71,6 +72,7 @@ function Shell() {
             <SideLink to="/" icon="grid" label="Projects" end />
             <SideLink to="/org" icon="users" label="Organisation" />
             <SideLink to="/invitations" icon="mail" label="Invites" count={inv.data ?? 0} />
+            <SideLink to="/cli" icon="terminal" label="CLI guide" />
           </div>
           <div className="side-spacer" />
           <div className="side-nav">
@@ -91,13 +93,14 @@ function Shell() {
               { to: "/", icon: "grid", label: "Projects", end: true },
               { to: "/org", icon: "users", label: "Organisation" },
               { to: "/invitations", icon: "mail", label: "Invites", count: inv.data ?? 0 },
+              { to: "/cli", icon: "terminal", label: "CLI guide" },
               { to: "/account", icon: "user", label: "Account" },
             ].map((l, i) => (
               <NavLink key={l.to} to={l.to} end={l.end} className="mmenu-item" style={{ "--i": i } as React.CSSProperties} tabIndex={menuOpen ? 0 : -1}>
                 <Icon name={l.icon} /><span>{l.label}</span>{l.count ? <span className="count">{l.count}</span> : null}
               </NavLink>
             ))}
-            <div className="mmenu-foot" style={{ "--i": 4 } as React.CSSProperties}>
+            <div className="mmenu-foot" style={{ "--i": 5 } as React.CSSProperties}>
               <ThemeToggle variant="side" />
               <button className="side-item" tabIndex={menuOpen ? 0 : -1} onClick={() => logout().then(() => nav("/login"))}><Icon name="logout" /><span className="label">Sign out</span></button>
             </div>
@@ -121,6 +124,7 @@ export function App() {
         <Route path="invitations" element={<InvitationsPage />} />
         <Route path="org" element={<OrgPage />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="cli" element={<CliGuidePage />} />
         <Route path="p/:projectId" element={<ProjectLayout />}>
           <Route index element={<ProjectIndex />} />
           <Route path="e/:env" element={<VariablesPage />} />
