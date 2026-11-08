@@ -1,13 +1,15 @@
 import { spawn } from "node:child_process";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, relative } from "node:path";
 import { hostname } from "node:os";
 import { join, resolve } from "node:path";
 import { diffEnv, parseEnv, serializeEnv, type EnvMap } from "@secretvariable/shared";
 import { Api, ApiError } from "./api.js";
 import type { Parsed } from "./args.js";
 import { str } from "./args.js";
-import { clearCredentials, findLink, readCredentials, requireCredentials, requireLink, saveCredentials, writeLink, LINK_FILE } from "./config.js";
+import { clearCredentials, findLink, readCredentials, requireCredentials, requireLink, saveCredentials, writeLink, LINK_FILE, type ProjectLink } from "./config.js";
 import { CliError, style, table, type IO } from "./io.js";
+import { isUntouched, previousEnvironment, remember, setPrevious, STATE_FILE } from "./state.js";
 
 type Cmd = (p: Parsed, io: IO) => Promise<void>;
 
@@ -35,16 +37,24 @@ async function envs(a: Api, projectId: string): Promise<EnvInfo[]> {
   return (await a.get(`/projects/${projectId}/environments`)).environments;
 }
 
+/**
+ * Find an environment by name. An exact name always wins; otherwise a prefix works when it is unambiguous
+ * ("prod" for "production"), so `--env dev` and `env use staging` need fewer keystrokes without guessing.
+ */
+function matchEnv(list: EnvInfo[], input: string): EnvInfo {
+  const exact = list.find((e) => e.name === input) ?? list.find((e) => e.name.toLowerCase() === input.toLowerCase());
+  if (exact) return exact;
+  const pre = list.filter((e) => e.name.toLowerCase().startsWith(input.toLowerCase()));
+  if (pre.length === 1) return pre[0]!;
+  if (pre.length > 1) throw new CliError(`"${input}" matches more than one environment: ${pre.map((e) => e.name).join(", ")}.`, "Type more of the name.");
+  throw new CliError(`No environment named "${input}" (or you do not have access to it).`, list.length ? `Available: ${list.map((e) => e.name).join(", ")}` : undefined);
+}
+
 async function resolveEnv(io: IO, p: Parsed): Promise<{ api: Api; link: ReturnType<typeof requireLink>; env: EnvInfo; dir: string }> {
   const link = requireLink(io);
   const a = api(io);
   const list = await envs(a, link.link.projectId);
-  const name = str(p.flags.env) ?? link.link.environment;
-  const env = list.find((e) => e.name === name);
-  if (!env) {
-    throw new CliError(`No environment named "${name}" (or you do not have access to it).`,
-      list.length ? `Available: ${list.map((e) => e.name).join(", ")}` : undefined);
-  }
+  const env = matchEnv(list, str(p.flags.env) ?? link.link.environment);
   return { api: a, link, env, dir: link.dir };
 }
 
@@ -194,21 +204,42 @@ export const init: Cmd = async (p, io) => {
 };
 
 // ---------------------------------------------------------------- environments
+const PROD = /^(prod|production)$/i;
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const keyList = (keys: string[]) => (keys.length > 8 ? `${keys.slice(0, 8).join(", ")} and ${keys.length - 8} more` : keys.join(", "));
+
+/** Write an env file with owner-only permissions and remember what was written, so a later switch or pull can tell it is untouched. */
+function writeEnvFile(io: IO, dir: string, file: string, text: string, environment: string, version: number | null): void {
+  writeFileSync(file, text, { mode: 0o600 });
+  try { chmodSync(file, 0o600); } catch { /* best effort */ }
+  const created = remember(dir, file, text, environment, version);
+  if (created && gitignoreCovers(dir, STATE_FILE) === false) io.out(style(io).dim(`Tip: add ${STATE_FILE} to .gitignore. It only holds a fingerprint of your env file, but it is local to your machine.`));
+}
+
+/** Keep a private copy of a file that is about to be replaced. */
+function backUp(io: IO, file: string): string {
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*$/, "").replace("T", "-");
+  const path = `${file}.backup-${stamp}`;
+  writeFileSync(path, readFileSync(file), { mode: 0o600 });
+  try { chmodSync(path, 0o600); } catch { /* best effort */ }
+  io.out(`Saved your local copy to ${path} (owner-only; delete it when you no longer need it).`);
+  return path;
+}
+
 export const envCmd: Cmd = async (p, io) => {
   const [sub, name] = p.positionals;
   const { link, dir } = requireLink(io);
   const a = api(io);
   const list = await envs(a, link.projectId);
+  const s = style(io);
   if (!sub || sub === "list") {
+    io.out(`Project: ${s.bold(link.projectName)}${link.orgName ? ` (${link.orgName})` : ""}\nUsing:   ${s.bold(link.environment)}\n`);
     io.out(table(list.map((e) => [e.name === link.environment ? "*" : " ", e.name, e.headNumber ? `v${e.headNumber}` : "-", String(e.variableCount), e.access]), ["", "ENVIRONMENT", "VERSION", "VARS", "ACCESS"]));
     return;
   }
   if (!name) throw new CliError(`Usage: secretvariable env ${sub} <name>`);
-  if (sub === "use") {
-    if (!list.some((e) => e.name === name)) throw new CliError(`No environment named "${name}".`, `Available: ${list.map((e) => e.name).join(", ")}`);
-    writeLink(dir, { ...link, environment: name });
-    io.out(`Now using environment "${name}".`);
-  } else if (sub === "create") {
+  if (sub === "use") return useEnv(p, io, { api: a, link, dir, list, input: name, s });
+  if (sub === "create") {
     let copyFromVersionId: string | undefined;
     const from = str(p.flags.from);
     if (from) {
@@ -222,28 +253,98 @@ export const envCmd: Cmd = async (p, io) => {
     }
     await a.post(`/projects/${link.projectId}/environments`, { name, copyFromVersionId });
     io.out(`Created environment "${name}"${from ? ` (copied from ${from})` : ""}.`);
-  } else throw new CliError(`Unknown subcommand "env ${sub}".`, "Use: env list | env use <name> | env create <name> [--from <env>[@version]]");
+    return;
+  }
+  throw new CliError(`Unknown subcommand "env ${sub}".`, "Use: env list | env use <name> | env create <name> [--from <env>[@version]]");
 };
+
+/**
+ * Switch the folder to another environment and bring the env file along.
+ * The file is only replaced when nothing is lost: it is untouched since the last pull or push, or it holds
+ * nothing the current environment does not already have. Otherwise you choose: back it up, discard it, or cancel.
+ */
+async function useEnv(p: Parsed, io: IO, c: { api: Api; link: ProjectLink; dir: string; list: EnvInfo[]; input: string; s: ReturnType<typeof style> }): Promise<void> {
+  const { api: a, link, dir, list, s } = c;
+  let input = c.input;
+  if (input === "-") {
+    const prev = previousEnvironment(dir);
+    if (!prev) throw new CliError("There is no previous environment to go back to.", "Use: env use <name>");
+    input = prev;
+  }
+  const target = matchEnv(list, input);
+  const where = `${link.projectName} / ${target.name}`;
+  if (target.name === link.environment) { io.out(`Already using ${s.bold(target.name)} in ${link.projectName}.`); return; }
+
+  const file = fileOf(io, dir, p);
+  let pullInto: string | null = null;
+  if (!p.flags["no-pull"] && existsSync(file)) {
+    const text = readFileSync(file, "utf8");
+    let lost: string[] = [];
+    if (!isUntouched(dir, file, text)) {
+      const current = list.find((e) => e.name === link.environment);
+      const base = current ? await remoteHead(a, current) : {};
+      const d = diffEnv(base, parseEnv(text));
+      lost = [...d.changed, ...d.added];
+    }
+    if (lost.length) {
+      if (p.flags.discard) io.out(s.yellow(`Discarding ${plural(lost.length, "local change")} in ${basename(file)}.`));
+      else if (p.flags.backup) backUp(io, file);
+      else if (io.isTTY) {
+        io.out(`${basename(file)} has ${plural(lost.length, "change")} that ${link.environment} does not have: ${keyList(lost)}.`);
+        const ans = ((await io.ask("Back them up and switch [b], discard and switch [d], or cancel [c]? ")) ?? "").trim().toLowerCase();
+        if (ans.startsWith("b")) backUp(io, file);
+        else if (ans.startsWith("d")) io.out(s.yellow("Discarding your local changes."));
+        else throw new CliError("Cancelled. Nothing was changed.", "Use `push` to save your changes first.");
+      } else {
+        throw new CliError(`${basename(file)} has ${plural(lost.length, "change")} that would be lost: ${keyList(lost)}.`,
+          "Run `push` to save them, or pass --backup (keep a copy) or --discard (drop them), or --no-pull to switch without touching the file.");
+      }
+    }
+    pullInto = file;
+  }
+
+  let version: number | null = null;
+  let count = 0;
+  if (pullInto) {
+    const vars: EnvMap = target.headNumber ? (await a.get(`/environments/${target.id}/versions/head`)).variables : {};
+    version = target.headNumber;
+    count = Object.keys(vars).length;
+    writeEnvFile(io, dir, pullInto, serializeEnv(vars), target.name, version);
+  }
+  setPrevious(dir, link.environment);
+  writeLink(dir, { ...link, environment: target.name });
+
+  const rel = pullInto ? relative(io.cwd, pullInto) || basename(pullInto) : "";
+  if (pullInto) io.out(`Now using ${s.bold(where)}${version ? ` (v${version})` : ""}. Wrote ${plural(count, "variable")} to ${rel}.`);
+  else if (p.flags["no-pull"]) io.out(`Now using ${s.bold(where)}. Your env file was left as it was.`);
+  else io.out(`Now using ${s.bold(where)}. There is no ${basename(file)} here yet; run \`secretvariable pull\` to create one.`);
+  if (PROD.test(target.name)) io.out(s.yellow(`You are on ${target.name}. Check ${basename(file)} before you push.`));
+  if (pullInto && gitignoreCovers(dir, ".env") === false) io.out(s.yellow("Warning: .env is not in .gitignore."));
+}
 
 // ---------------------------------------------------------------- pull / push / run
 export const pull: Cmd = async (p, io) => {
-  const { api: a, env, dir } = await resolveEnv(io, p);
+  const { api: a, env, dir, link } = await resolveEnv(io, p);
   const ver = str(p.flags.version);
   const r = await a.get(`/environments/${env.id}/versions/${ver ? ver.replace(/^v/, "") : "head"}`);
   const file = fileOf(io, dir, p);
   const vars: EnvMap = r.variables;
   const text = serializeEnv(vars);
   if (existsSync(file) && !p.flags.force) {
-    const local = parseEnv(readFileSync(file, "utf8"));
-    const d = diffEnv(vars, local);
-    if (d.added.length || d.changed.length) {
-      throw new CliError(`${file} has local changes that would be overwritten (${[...d.changed, ...d.added].length} differing keys).`,
-        "Run `secretvariable status` to see them, `secretvariable push` to save them, or use --force to overwrite.");
+    const local = readFileSync(file, "utf8");
+    // Untouched since the last pull or push: replacing it loses nothing, even if the server has moved on.
+    if (!isUntouched(dir, file, local)) {
+      const d = diffEnv(vars, parseEnv(local));
+      const differing = [...d.changed, ...d.added];
+      if (differing.length) {
+        if (p.flags.backup) backUp(io, file);
+        else throw new CliError(`${file} has local changes that would be overwritten (${differing.length} differing keys: ${keyList(differing)}).`,
+          "Run `secretvariable status` to see them, `secretvariable push` to save them, or use --backup (keep a copy) or --force (overwrite).");
+      }
     }
   }
-  writeFileSync(file, text, { mode: 0o600 });
-  try { chmodSync(file, 0o600); } catch { /* best effort */ }
-  io.out(`Wrote ${Object.keys(vars).length} variables from ${env.name} v${r.version.number} to ${file}`);
+  writeEnvFile(io, dir, file, text, env.name, r.version.number);
+  io.out(`Wrote ${Object.keys(vars).length} variables from ${env.name} v${r.version.number} to ${file} (project: ${link.link.projectName})`);
   if (gitignoreCovers(dir, ".env") === false) io.out(style(io).yellow("Warning: .env is not in .gitignore."));
 };
 
@@ -253,21 +354,31 @@ async function remoteHead(a: Api, env: EnvInfo): Promise<EnvMap> {
 }
 
 export const push: Cmd = async (p, io) => {
-  const { api: a, env, dir } = await resolveEnv(io, p);
+  const { api: a, env, dir, link } = await resolveEnv(io, p);
   const file = fileOf(io, dir, p);
   if (!existsSync(file)) throw new CliError(`${file} does not exist.`);
-  const local = parseEnv(readFileSync(file, "utf8"));
+  const text = readFileSync(file, "utf8");
+  const local = parseEnv(text);
   const remote = await remoteHead(a, env);
   const d = diffEnv(remote, local);
-  if (!d.added.length && !d.changed.length && !d.removed.length) { io.out(`No changes. ${env.name} is already at v${env.headNumber}.`); return; }
-  io.out(summary(io, d));
+  if (!d.added.length && !d.changed.length && !d.removed.length) {
+    remember(dir, file, text, env.name, env.headNumber);
+    io.out(`No changes. ${env.name} is already at v${env.headNumber}.`);
+    return;
+  }
+  io.out(`${style(io).dim(`${link.link.projectName} / ${env.name}`)}\n${summary(io, d)}`);
   if (d.removed.length && !p.flags.yes) {
     const ans = await io.ask(`This removes ${d.removed.length} variable(s) from ${env.name}. Continue? [y/N] `);
     if (ans === null) throw new CliError("Refusing to remove variables without confirmation.", "Re-run with --yes.");
     if (!/^y(es)?$/i.test(ans.trim())) throw new CliError("Cancelled.");
   }
+  if (PROD.test(env.name) && io.isTTY && !p.flags.yes) {
+    const ans = await io.ask(`Push these changes to ${style(io).bold(`${link.link.projectName} / ${env.name}`)}? [y/N] `);
+    if (!/^y(es)?$/i.test((ans ?? "").trim())) throw new CliError("Cancelled. Nothing was pushed.");
+  }
   const r = await a.post(`/environments/${env.id}/versions`, { variables: local, message: str(p.flags.message) ?? "" });
-  io.out(`Pushed to ${env.name} as v${r.version.number}.`);
+  remember(dir, file, text, env.name, r.version.number);
+  io.out(`Pushed to ${env.name} as v${r.version.number} (project: ${link.link.projectName}).`);
 };
 
 function summary(io: IO, d: ReturnType<typeof diffEnv>): string {
@@ -276,12 +387,12 @@ function summary(io: IO, d: ReturnType<typeof diffEnv>): string {
 }
 
 export const status: Cmd = async (p, io) => {
-  const { api: a, env, dir } = await resolveEnv(io, p);
+  const { api: a, env, dir, link } = await resolveEnv(io, p);
   const file = fileOf(io, dir, p);
   if (!existsSync(file)) { io.out(`${file} does not exist. Run: secretvariable pull`); return; }
   const d = diffEnv(await remoteHead(a, env), parseEnv(readFileSync(file, "utf8")));
-  if (!d.added.length && !d.changed.length && !d.removed.length) { io.out(`${env.name}: ${file} matches v${env.headNumber ?? 0}.`); return; }
-  io.out(`${env.name} (v${env.headNumber ?? 0}) vs ${file}:\n  + only local, ~ differs, - only on server`);
+  if (!d.added.length && !d.changed.length && !d.removed.length) { io.out(`${env.name}: ${file} matches v${env.headNumber ?? 0} (project: ${link.link.projectName}).`); return; }
+  io.out(`${link.link.projectName} / ${env.name} (v${env.headNumber ?? 0}) vs ${file}:\n  + only local, ~ differs, - only on server`);
   io.out(summary(io, d));
 };
 

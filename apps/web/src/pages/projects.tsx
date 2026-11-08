@@ -81,15 +81,10 @@ export function ProjectsPage() {
       )}
 
       {projects.error ? <ErrorBox error={projects.error} retry={projects.reload} /> : projects.loading ? <Loading /> : list.length > 0 && (
-        <section>
-          <table className="table">
-            <thead><tr><th className="wide">Project</th><th>Environments</th><th>Your role</th><th className="hide-sm">Created</th></tr></thead>
-            <tbody>
-              {list.map((p) => (
-                <ProjectRow key={p.id} p={p} />
-              ))}
-            </tbody>
-          </table>
+        <section aria-label="Projects">
+          <ul className="proj-list">
+            {list.map((p) => <ProjectRow key={p.id} p={p} />)}
+          </ul>
         </section>
       )}
 
@@ -112,7 +107,7 @@ export function ProjectsPage() {
         </section>
       )}
 
-      {!noProjects && !projects.loading && <CodeLine>svar init</CodeLine>}
+      {!noProjects && !projects.loading && <><CodeLine>svar init</CodeLine><p className="muted">New to the command line? Read the <Link to="/cli" className="link">CLI guide</Link>.</p></>}
       {creating && <NewProject orgId={org.id} onClose={() => setCreating(false)} />}
     </div>
   );
@@ -121,11 +116,16 @@ export function ProjectsPage() {
 function ProjectRow({ p }: { p: Project }) {
   const nav = useNavigate();
   return (
-    <tr className="row-link" tabIndex={0} onClick={() => nav(`/p/${p.id}`)} onKeyDown={(e) => { if (e.key === "Enter") nav(`/p/${p.id}`); }}>
-      <td className="name fill"><Link to={`/p/${p.id}`} onClick={(e) => e.stopPropagation()}>{p.name}</Link></td>
-      <td className="num" style={{ textAlign: "left" }}>{p.environmentCount}</td>
-      <td><span className="pill">{p.role}</span></td>
-      <td className="muted hide-sm" title={absTime(p.createdAt)}>{relTime(p.createdAt)}</td>
-    </tr>
+    <li>
+      <Link className="proj" to={`/p/${p.id}`} onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) { e.preventDefault(); nav(`/p/${p.id}`); } }}>
+        <span className="proj-ico" aria-hidden="true">{p.name.slice(0, 1).toUpperCase()}</span>
+        <span className="proj-main">
+          <span className="proj-name">{p.name}</span>
+          <span className="proj-meta">{p.environmentCount} {p.environmentCount === 1 ? "environment" : "environments"} · created <span title={absTime(p.createdAt)}>{relTime(p.createdAt)}</span></span>
+        </span>
+        <span className="pill">{p.role}</span>
+        <Icon name="chevron" className="ico chev" />
+      </Link>
+    </li>
   );
 }

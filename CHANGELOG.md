@@ -2,6 +2,13 @@
 
 All notable changes are recorded here. The project follows [Semantic Versioning](https://semver.org/) once it reaches 1.0; until then minor versions may include breaking changes.
 
+## 0.2.0
+
+- `svar env use <name>` now switches the env file too, in one step. It only replaces the file when nothing would be lost (untouched since the last pull or push, or nothing the current environment lacks); otherwise it stops and lists the keys, with `--backup`, `--discard` and `--no-pull` as the ways forward, or a prompt in a terminal. `svar env use -` returns to the previous environment, and unambiguous prefixes (`prod`, `dev`) work for names and for `--env`.
+- `svar pull` updates a file you have not edited without `--force`, and has `--backup`. The CLI remembers what it last wrote in `.secretvariable.state.json` (a salted fingerprint, never contents).
+- `svar env list` shows the project and the environment in use; `pull`, `push` and `status` print the project name.
+- In a terminal, `svar push` to a `production` environment asks for confirmation (`--yes` skips; scripts are not blocked).
+
 ## 0.1.1
 
 - The npm package page and the README now link to the website, <https://www.secretvariable.com>, and its guides. No code changes.

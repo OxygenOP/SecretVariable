@@ -40,8 +40,8 @@ This writes `.secretvariable.json` (project id and current environment; contains
 
 | Command | What it does |
 |---|---|
-| `pull [--env E] [--version N] [--file F] [--force]` | Write the environment's variables to `.env` (mode `0600`). Refuses to overwrite local-only or differing keys unless `--force`. Warns if `.env` is not in `.gitignore`. |
-| `push [--env E] [--file F] [-m msg] [--yes]` | Upload `.env` as a new version. Shows `+ added ~ changed - removed` first. Removing variables asks for confirmation (`--yes` without a terminal). Identical content creates no version. |
+| `pull [--env E] [--version N] [--file F] [--backup \| --force]` | Write the environment's variables to `.env` (mode `0600`). A file you have not touched since the last pull or push is simply updated. A file with your own edits is protected: it stops and lists the keys, unless you pass `--backup` (keep a copy first) or `--force`. Warns if `.env` is not in `.gitignore`. |
+| `push [--env E] [--file F] [-m msg] [--yes]` | Upload `.env` as a new version. Shows the project and environment, then `+ added ~ changed - removed`. Removing variables asks for confirmation (`--yes` without a terminal). In a terminal, pushing to `production` also asks you to confirm. Identical content creates no version. |
 | `status [--env E]` | Compare your local file with the server's head. |
 | `run [--env E] -- cmd args` | Run a command with the variables injected. Nothing is written to disk; the exit code is passed through. |
 
@@ -57,11 +57,28 @@ svar rollback 3           # saves v3's content as a new version
 ## Environments
 
 ```bash
-svar env list
-svar env use staging
+svar env list                                    # shows the project you are in, and the environment in use
+svar env use staging                             # switch, and update .env to match
+svar env use -                                   # go back to the previous environment
+svar env use prod                                # unambiguous prefixes work (also with --env)
 svar env create preview --from production        # copy from the head
 svar env create preview --from production@4      # copy from v4
 ```
+
+### Switching environments safely
+
+`svar env use <name>` changes the folder's default environment and, if the folder has an env file, rewrites it with the new environment's variables in one step.
+
+The file is only replaced when nothing would be lost. The CLI remembers a fingerprint of what it last wrote (in `.secretvariable.state.json`, which holds no secret values and should be git-ignored). If the file is still exactly that, or holds nothing the current environment does not already have, the switch just happens. If you have edited it, the CLI stops and lists the keys:
+
+| You want to | Use |
+|---|---|
+| Keep your edits in a private copy and switch | `svar env use staging --backup` (writes `.env.backup-<time>`, mode `0600`) |
+| Drop your edits and switch | `svar env use staging --discard` |
+| Switch without touching the file | `svar env use staging --no-pull` |
+| Save your edits first | `svar push`, then switch |
+
+In a terminal it asks you to choose (backup, discard or cancel). Without a terminal it refuses until you pass one of the flags. No env file in the folder means none is created; run `svar pull`. After switching to `production` it reminds you where you are, and in a terminal `svar push` to production asks for confirmation (`--yes` skips it; scripts without a terminal are never blocked).
 
 ## Team and tokens
 
